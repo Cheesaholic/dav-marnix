@@ -1,0 +1,10 @@
+[project]
+name = "dav-marnix"
+version = "0.1.0"
+description = "Marnix' repo voor het vak DAV"
+author = "Marnix Ober <marnix.ober@student.hu.nl>"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2.3",
+]
