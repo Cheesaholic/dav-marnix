@@ -1,3 +1,11 @@
+# File still needs updating to new framework...
+
+
+
+
+
+
+
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -6,6 +14,9 @@ from pathlib import Path
 from loguru import logger
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
+@dataclass
+class 
 
 import tomllib
 configfile = Path("config.toml").resolve()

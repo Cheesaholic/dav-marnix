@@ -6,5 +6,35 @@ author = "Marnix Ober <marnix.ober@student.hu.nl>"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastparquet>=2024.11.0",
+    "ipykernel>=6.29.5",
+    "matplotlib>=3.10.1",
     "pandas>=2.2.3",
+    "pathlib>=1.0.1",
+    "pillow>=11.1.0",
+    "pyarrow>=19.0.1",
+    "pydantic>=2.10.6",
+    "seaborn>=0.13.2",
 ]
+
+[dependency-groups]
+dev = [
+    "black[jupyter]>=24.10.0",
+    "isort>=5.13.2",
+    "jupyter>=1.1.1",
+    "mypy>=1.14.1",
+    "notebooktester>=0.2.0",
+    "ruff>=0.8.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/marn-x"]
+
+[tool.mypy]
+allow_redefinition = true
+ignore_missing_imports = true
+pretty = true

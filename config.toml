@@ -1,0 +1,12 @@
+# Settings
+raw = "data/raw"
+processed = "data/processed"
+
+# Input les 1 (filename heatmaps)
+input_heatmaps = ["_chat.txt"]
+
+# Input les 2 (filename worstenbroodjes)
+input_worstenbroodjes = ["https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/nl.wikipedia.org/all-access/user/Brabants_worstenbroodje/daily/20230101/20250310"]
+request_headers_worstenbroodjes = { 'User-Agent' = 'Marn-X/0.1 (marnix.ober@student.hu.nl)' }
+json_nests_worstenbroodjes = ["items"]
+images_worstenbroodjes = ["https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/North_Brabant-Flag.svg/1200px-North_Brabant-Flag.svg.png"]
