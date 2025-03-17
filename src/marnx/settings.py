@@ -4,16 +4,21 @@ from requests import get
 import tomllib
 from datetime import datetime
 from pathlib import Path
-from dataclasses import dataclass
 from typing import Optional
 from pydantic import BaseModel
 import pandas as pd
+import numpy as np
 from PIL import Image
 from io import BytesIO
 import inspect
 import json
 import re
 import logging
+import json
+import statistics
+from scipy.stats import norm
+import random
+import colorsys
 
 # @dataclass
 class MessageFileLoader():
@@ -22,32 +27,34 @@ class MessageFileLoader():
     datafiles: list[pd.DataFrame]
     images: list[Image]
     
-    def __init__(self):
+    def __init__(self, **kwargs):
         # Returns location of file initiating this class
         caller = inspect.stack()[1][1]
 
         # Getting file name
         self.file_stem = Path(caller).stem
-        input_file = "input_" + self.file_stem
+
+        if not self.file_stem in config:
+            raise ValueError(f"No variables set for file {self.file_stem}")
         
-        if not "input_" + self.file_stem in config:
+        # Add any settings from config.toml as attributes
+        for key in config[self.file_stem]:
+            setattr(self, key, config[self.file_stem][key])
+        # Add any keyword arguments passed to init as attributes
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
+        
+        if not hasattr(self, "input"):
             raise ValueError(f"No inputfiles set for script {self.file_stem}")
         
-        message_files = config["input_" + self.file_stem]
-        self.input_path = (Path("../..") / Path(config["processed"])).resolve()
-        self.message_file_paths = [(self.input_path / Path(message_file)).resolve() if not is_hyperlink(message_file) else message_file for message_file in message_files]
+        self.input_path = (Path("../..") / Path(config["settings"]["processed"])).resolve()
+        self.message_file_paths = [(self.input_path / Path(message_file)).resolve() if not is_hyperlink(message_file) else message_file for message_file in self.input]
     
     def get_datafiles(self) -> list[pd.DataFrame]:
         df_list = [load_dataframe(file, loader=self) for file in self.message_file_paths]
         self.datafiles = df_list
 
         return df_list
-    
-    def get_request_headers(self) -> dict:
-        if "request_headers_" + self.file_stem in config:
-            return config["request_headers_" + self.file_stem]
-        else:
-            return {}
     
     def parse_json(self, json_file: json) -> json:
         """
@@ -58,37 +65,74 @@ class MessageFileLoader():
         
         """
 
-        nests = "json_nests_" + self.file_stem
-
-        if nests in config:
-            for level in config[nests]:
+        if hasattr(self, "nests"):
+            for level in self.nests:
                 json_file = json_file[level]
         
         return json_file
     
     def get_images(self):
-        if "images_" + self.file_stem in config:
-            images = config["images_" + self.file_stem]
-            image_list = [load_image(image) for image in images]
+        if hasattr(self, "images"):
+            self.images = [load_image(image) for image in self.images]
         else:
-            raise ValueError(f"images_{self.file_stem} not found in config.toml")
+            raise ValueError(f"images in table {self.file_stem} not found in config.toml")
         
-        self.images = image_list
-        return image_list
+        return self.images
     
     def clean_transform_data(self):
         pass
 
+class PlotSettings(BaseModel):
+    """Base settings for plotting."""
+    title: str = ""
+    xlabel: str = ""
+    ylabel: str = ""
+    figsize: tuple = (10, 6)
+    rotation: int = 0
+    legend_title: Optional[str] = None
+
 class BasePlot:
-    def __init__(self, data):
-        self.data = data
-        self.fig, self.ax = plt.subplots(figsize=(20,10))
+    """Base class for creating plots."""
+    def __init__(self, settings: PlotSettings):
+        self.settings = settings
+        self.fig = None
+        self.ax = None
+        
+    def create_figure(self, loader: Optional[MessageFileLoader]):
+        """Create a figure and configure it based on settings."""
+        # IMPROVEMENT: Instead of hardcoding figsize=(10, 6) everywhere,
+        # we use the value from settings
+        self.fig, self.ax = plt.subplots(figsize=self.settings.figsize or loader.figsize)
+        
+        # IMPROVEMENT: Instead of repeating these calls in every plotting function,
+        # we centralize them here once
+        try:
+            self.ax.set_xlabel(self.settings.xlabel or loader.xlabel)
+            self.ax.set_ylabel(self.settings.ylabel or loader.ylabel)
+            self.ax.set_title(self.settings.title or loader.title)
+        except:
+            raise ValueError("Settings class or config.toml have to be set to plot xlabel, ylabel and title.")
+        
+        # IMPROVEMENT: Legend settings are now configurable
+        if self.settings.legend_title is not None:
+            self.ax.legend(title=self.settings.legend_title)
+            
+        plt.tight_layout()
+        return self.fig, self.ax
     
-    def plot(self):
-        pass
+        # this helps us use the figure in other classes
+        # this is the Open-Closed principle;
+        # make code CLOSED for modification (is essence, we will probably never 
+        # need to modify the BasePlot class) but OPEN for extension if we want to
+        # add more features
+    def get_figure(self):
+        """Return the figure, creating it if needed."""
+        if self.fig is None:
+            self.create_figure()
+        return self.fig
 
 def is_hyperlink(path: str) -> bool:
-    return bool(re.search(r"^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$", path))
+    return bool(re.search(r"https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$", path))
 
 def is_datafile_exists(path: Path) -> bool:
     """
@@ -175,8 +219,8 @@ def load_dataframe(file_path: Path | str, loader: Optional[MessageFileLoader] = 
     
     if isinstance(file_path, str) and file_path.startswith("http"):
         headers = {}
-        if loader is not None:
-            headers = loader.get_request_headers()
+        if loader is not None and hasattr(loader, "request_headers"):
+            headers = loader.request_headers
         file = get_api_data(file_path, headers=headers)
         parsed_file = loader.parse_json(file.json())
         normalized_df = pd.json_normalize(parsed_file)
@@ -193,8 +237,29 @@ def load_dataframe(file_path: Path | str, loader: Optional[MessageFileLoader] = 
         return pd.read_csv(file_path, delimiter=delimiter)
     elif file_extension == ".parq" or file_extension == ".parquet":
         return pd.read_parquet(file_path)
+    elif file_extension == ".json":
+        with open(file_path) as f:
+            return json.load(f)
     else:
         raise ValueError(f"Unsupported file type: {file_extension}. Supported types: csv, txt, parq/parquet.")
+
+def create_distribution(datapoints: np.array):
+    mean = statistics.mean(datapoints) 
+    sd = statistics.stdev(datapoints)
+
+    pdf = norm.pdf(datapoints, mean, sd)
+
+    bell_values_x = np.linspace(mean - 3*sd, mean + 3*sd, 1000)
+    bell_values_y = norm.pdf(bell_values_x, mean, sd)
+
+    return [[datapoints, pdf], [bell_values_x, bell_values_y]]
+
+def get_random_color():
+    """ Returns random high saturation color """
+    h,s,l = random.random(), 0.5 + random.random()/2.0, 0.4 + random.random()/5.0
+    r,g,b = [int(256*i) for i in colorsys.hls_to_rgb(h,l,s)]
+
+    return (r, g, b)
 
 
 with open(Path("../../config.toml").resolve(), "rb") as f:

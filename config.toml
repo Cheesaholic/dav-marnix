@@ -1,12 +1,28 @@
-# Settings
+[ settings ]
 raw = "data/raw"
 processed = "data/processed"
 
-# Input les 1 (filename heatmaps)
-input_heatmaps = ["_chat.txt"]
+# Les 1
+[ heatmaps ]
+input = ["_chat.txt"]
+title = "Weekly Message Activity Heatmap"
+xlabel = "Hour of Day"
+ylabel = "Day of Week"
 
-# Input les 2 (filename worstenbroodjes)
-input_worstenbroodjes = ["https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/nl.wikipedia.org/all-access/user/Brabants_worstenbroodje/daily/20230101/20250310"]
-request_headers_worstenbroodjes = { 'User-Agent' = 'Marn-X/0.1 (marnix.ober@student.hu.nl)' }
-json_nests_worstenbroodjes = ["items"]
-images_worstenbroodjes = ["https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/North_Brabant-Flag.svg/1200px-North_Brabant-Flag.svg.png"]
+# Les 2
+[ worstenbroodjes ]
+input = ["https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/nl.wikipedia.org/all-access/user/Brabants_worstenbroodje/daily/20230101/20250311"]
+request_headers = { 'User-Agent' = 'Marn-X/0.1 (marnix.ober@student.hu.nl)' }
+json_nests = ["items"]
+images = ["https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/North_Brabant-Flag.svg/1200px-North_Brabant-Flag.svg.png"]
+
+# Les 3
+[ hyperlinks_vs_genders ]
+input = ["KJ.csv", "genders_distribution.json"]
+min_messages = 50
+gender_colors = {"F" = "#AA336A", "M" = "#00008B"}
+
+suptitle = "Vrouwen sturen in deze groepsapp minder hyperlinks dan mannen! (p = {p})"
+title = "O.b.v. {num_m} mannen en {num_f} vrouwen in een groepsapp. Personen met minder dan {min_messages} berichten weggefilterd."
+xlabel = "Percentage hyperlinks in verhouding tot verstuurde berichten"
+ylabel = "Waarschijnlijkheidsdichtheid"

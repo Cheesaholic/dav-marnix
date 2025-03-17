@@ -35,22 +35,22 @@ class WorstenbroodjesLoader(MessageFileLoader):
         self.datafiles[0] = agg
 
 class WorstenbroodjesPlotter(BasePlot):
-    def __init__(self, data):
-        super().__init__(data)
+    def __init__(self):
+        super().__init__()
     
     def plot(self, loader):
-        self.data.plot.line(linewidth=5, figsize=(20,10), color="#5C4033", legend=False, ax=self.ax)
+        loader.datafiles[0].plot.line(linewidth=5, figsize=(20,10), color="#5C4033", legend=False, ax=self.ax)
 
         # Add Carnaval dates as avxspan
         for instance in get_carnaval():
             self.ax.axvspan(instance["start"], instance["end"], facecolor='black', alpha=0.3)
         
         # Add annotations
-        self.ax.annotate("Pagina-bezoeken per week", (self.data.index.max(), self.data.iloc[-1][0]), fontsize=12)
-        self.ax.annotate("Peter Gillis veroordeeld voor belastingfraude -->", (datetime(2023, 6, 6), self.data["views"].max()), fontsize=13)
+        self.ax.annotate("Pagina-bezoeken per week", (loader.datafiles[0].index.max(), loader.datafiles[0].iloc[-1][0]), fontsize=12)
+        self.ax.annotate("Peter Gillis veroordeeld voor belastingfraude -->", (datetime(2023, 6, 6), loader.datafiles[0]["views"].max()), fontsize=13)
 
         # Add background image
-        self.ax.imshow(loader.get_images()[0], extent=[self.data.index.min(), self.data.index.max(), 0, self.data["views"].max()], alpha=0.2, aspect='auto')
+        self.ax.imshow(loader.get_images()[0], extent=[loader.datafiles[0].index.min(), loader.datafiles[0].index.max(), 0, loader.datafiles[0]["views"].max()], alpha=0.2, aspect='auto')
 
         # Hide x-axis label to reduce clutter
         self.ax.get_xaxis().get_label().set_visible(False)
@@ -86,7 +86,7 @@ def main():
 
     loader = WorstenbroodjesLoader()
 
-    plotter = WorstenbroodjesPlotter(loader.datafiles[0])
+    plotter = WorstenbroodjesPlotter()
 
     plotter.plot(loader)
 
