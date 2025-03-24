@@ -158,6 +158,86 @@ def get_carnaval():
          "start": datetime(2025,3,1),
          "end": datetime(2025,3,4)}]
 
+def get_birthdays(birthday: pd.Timestamp, from_date: pd.Timestamp, to_date: pd.Timestamp):
+
+    date_range = pd.date_range(start=from_date, end=to_date)
+
+    day = birthday.day
+    month = birthday.month
+
+    birthdays = date_range[(date_range.day == day) & (date_range.month == month)].floor("d")
+
+    return birthdays
+
+def create_birthday_list(author, birthday, message_data):
+
+    first_message = message_data.loc[message_data["author"] == author]["timestamp"].min()
+    last_message = message_data["timestamp"].max()
+
+    birthdays = pd.DataFrame(index=get_birthdays(birthday, first_message, last_message))
+
+    birthdays["author"] = author
+
+    return birthdays
+
+def how_many_congratulations(message_data, author, birthdays, congratulations_regex):
+
+    first_message = message_data.loc[message_data["author"] == author]["timestamp"].min()
+    last_message = message_data["timestamp"].max()
+
+    congratulations = message_data.loc[(message_data["message"].str.match(congratulations_regex)) & \
+                                        (message_data["author"] == author)]["timestamp"].dt.floor("D").to_list()
+
+    if len(birthdays) < 1:
+        return 0, 0
+
+    birthdays = birthdays.reset_index(names="timestamp")
+
+    birthdays = birthdays.loc[(birthdays["author"] != author) & (birthdays["timestamp"] >= first_message) & (birthdays["timestamp"] <= last_message)]
+
+    congratulated = len(birthdays.loc[birthdays["timestamp"].isin(congratulations)])
+
+    not_congratulated = len(birthdays.loc[~birthdays["timestamp"].isin(congratulations)])
+
+    return congratulated, not_congratulated
+
+def birthday_congratulations(message_data: pd.DataFrame, birthday_json: json, congratulations_regex: re.match):
+
+    authors = message_data["author"].unique()
+
+    birthday_df = pd.DataFrame()
+
+    for author in authors:
+
+        if author not in birthday_json:
+            logging.warning(f"No birthday for {author} in birthday-JSON, continuing...")
+            continue
+        
+        birthday_list = create_birthday_list(author, birthday_json[author], message_data)
+
+        if birthday_df.empty:
+            birthday_df = birthday_list
+        else:
+            birthday_df = pd.concat([birthday_df, birthday_list])
+    
+    birthday_list.sort_index(inplace=True)
+    
+    congratulated_df = pd.DataFrame(columns=["author", "congratulated", "not_congratulated"])
+    
+    for author in authors:
+        congratulated, not_congratulated = how_many_congratulations(message_data, author, birthday_df, congratulations_regex)
+
+        congratulated_df.loc[len(congratulated_df)] = [author, congratulated, not_congratulated]
+
+    return congratulated_df
+
+def create_regex(regex, flags=re.I|re.U):
+    return re.compile(regex, flags)
+
+def calculate_age(birthday: pd.Timestamp):
+
+    return (datetime.now() - birthday) / pd.Timedelta(365.25, "d")
+
 def get_api_data(endpoint: str, headers: dict = {}, payload: dict = {}) -> list:
     """ Connects to API via endpoint and variables in string.
         Returns JSON-object. """

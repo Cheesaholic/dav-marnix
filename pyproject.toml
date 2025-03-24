@@ -6,6 +6,7 @@ author = "Marnix Ober <marnix.ober@student.hu.nl>"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "emoji>=2.14.1",
     "fastparquet>=2024.11.0",
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.1",

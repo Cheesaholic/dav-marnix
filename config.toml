@@ -8,6 +8,13 @@ input = ["_chat.txt"]
 title = "Weekly Message Activity Heatmap"
 xlabel = "Hour of Day"
 ylabel = "Day of Week"
+linewidths = 0.5
+cmap = "YlGnBu"
+yticks_ticks = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5]
+yticks_labels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+cbar_kws = {'label' = 'Number of Messages'}
+annot = true
+fmt = "d"
 
 # Les 2
 [ worstenbroodjes ]
@@ -26,3 +33,16 @@ suptitle = "Vrouwen sturen in deze groepsapp minder hyperlinks dan mannen! (p = 
 title = "O.b.v. {num_m} mannen en {num_f} vrouwen in een groepsapp. Personen met minder dan {min_messages} berichten weggefilterd."
 xlabel = "Percentage hyperlinks in verhouding tot verstuurde berichten"
 ylabel = "Waarschijnlijkheidsdichtheid"
+
+# Les 4
+[ congratulations ]
+suptitle = "Jongere familieleden feliciteren vaker dan ouderen in groepsapp. Wisselend verschil tussen mannen en vrouwen."
+title = "Percentage berekend met verjaardagen die actieve gebruikers sinds hun eerst verstuurde bericht en nu meegemaakt hebben. Gebruiker heeft gefeliciteerd door op verjaardagen een bericht te sturen met RegEx: {congratulations_regex}"
+xlabel = "Leeftijd familielid"
+ylabel = "Percentage familieleden gefeliciteerd in groepsapp"
+huelabel = "Geslacht"
+input = ["steenvoorden.parq", "steenvoorden_geboortedata.json", "steenvoorden_geslachtdata.json"]
+min_messages = 10
+only_active_users = true
+congratulations_regex = "(?ui)(gefelici|birthday|hbd|proficiat|🎉|🥳|🎊)"
+congratulations_flags = "ui"

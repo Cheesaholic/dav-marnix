@@ -1,11 +1,5 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from loguru import logger
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # Local imports
 from settings import MessageFileLoader, BasePlot
@@ -29,10 +23,10 @@ class HeatmapPlotter(BasePlot):
         super().__init__()
     
     def plot(self, loader):
-        sns.heatmap(self.datafiles[0], cmap='YlGnBu', linewidths=.5, annot=True, fmt='d', cbar_kws={'label': 'Number of Messages'})
+        sns.heatmap(self.datafiles[0], cmap=loader.cmap, linewidths=loader.linewidths, annot=loader.annot, fmt=loader.fmt, cbar_kws=loader.cbar_kws)
 
         # Set y-axis tick labels
-        plt.yticks(ticks=[0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5], labels=['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], rotation=self.settings.rotation)
+        plt.yticks(ticks=loader.yticks_ticks, labels=loader.yticks_labels, rotation=self.settings.rotation)
 
         plt.show()
 
