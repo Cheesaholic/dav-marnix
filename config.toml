@@ -43,6 +43,6 @@ ylabel = "Percentage familieleden gefeliciteerd in groepsapp"
 huelabel = "Geslacht"
 input = ["steenvoorden.parq", "steenvoorden_geboortedata.json", "steenvoorden_geslachtdata.json"]
 min_messages = 10
-only_active_users = true
+birthday_dateformat = "%d-%m-%Y"
 congratulations_regex = "(?ui)(gefelici|birthday|hbd|proficiat|🎉|🥳|🎊)"
 congratulations_flags = "ui"
