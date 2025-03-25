@@ -30,8 +30,6 @@ class DistributionLoader(MessageFileLoader):
 
         congratulations_df = congratulations_df.loc[congratulations_df[self.xlabel] > 0]
 
-        congratulations_df.loc[congratulations_df["author"] == "sidesplitting-quokka", self.ylabel] = 43
-
         self.datafiles.append(congratulations_df)
 
 
