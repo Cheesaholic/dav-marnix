@@ -1,8 +1,14 @@
-# Les 1
+# Les 2
 import heatmaps
 
-# Les 2
+# Les 3
 import worstenbroodjes
 
-# Les 3
+# Les 4
 import hyperlinks_vs_genders
+
+# Les 5
+import congratulations
+
+# Les 6
+import robberts_spelling_bee

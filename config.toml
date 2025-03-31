@@ -1,10 +1,15 @@
+# General settings (can be overwritten in file specific configs below)
 [ settings ]
 raw = "data/raw"
 processed = "data/processed"
 
-# Les 1
+message_col = "message"
+author_col = "author"
+timestamp_col = "timestamp"
+
+# Les 2
 [ heatmaps ]
-input = ["_chat.txt"]
+input.chat = "_chat.txt"
 title = "Weekly Message Activity Heatmap"
 xlabel = "Hour of Day"
 ylabel = "Day of Week"
@@ -16,16 +21,18 @@ cbar_kws = {'label' = 'Number of Messages'}
 annot = true
 fmt = "d"
 
-# Les 2
+# Les 3
 [ worstenbroodjes ]
-input = ["https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/nl.wikipedia.org/all-access/user/Brabants_worstenbroodje/daily/20230101/20250311"]
+input.wikipedia_api = "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/nl.wikipedia.org/all-access/user/Brabants_worstenbroodje/daily/20230101/20250311"
+api_dt_format = "%Y%m%d%H"
 request_headers = { 'User-Agent' = 'Marn-X/0.1 (marnix.ober@student.hu.nl)' }
 json_nests = ["items"]
 images = ["https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/North_Brabant-Flag.svg/1200px-North_Brabant-Flag.svg.png"]
 
-# Les 3
+# Les 4
 [ hyperlinks_vs_genders ]
-input = ["KJ.csv", "genders_distribution.json"]
+input.chat = "KJ.csv"
+input.genders = "genders_distribution.json"
 min_messages = 50
 gender_colors = {"F" = "#AA336A", "M" = "#00008B"}
 
@@ -34,15 +41,54 @@ title = "O.b.v. {num_m} mannen en {num_f} vrouwen in een groepsapp. Personen met
 xlabel = "Percentage hyperlinks in verhouding tot verstuurde berichten"
 ylabel = "Waarschijnlijkheidsdichtheid"
 
-# Les 4
+# Les 5
 [ congratulations ]
 suptitle = "Jongere familieleden feliciteren vaker dan ouderen in groepsapp. Wisselend verschil tussen mannen en vrouwen."
 title = "Percentage berekend met verjaardagen die actieve gebruikers sinds hun eerst verstuurde bericht en nu meegemaakt hebben. Gebruiker heeft gefeliciteerd door op verjaardagen een bericht te sturen met RegEx: {congratulations_regex}"
 xlabel = "Leeftijd familielid"
 ylabel = "Percentage familieleden gefeliciteerd in groepsapp"
 huelabel = "Geslacht"
-input = ["steenvoorden.parq", "steenvoorden_geboortedata.json", "steenvoorden_geslachtdata.json"]
+input.chat = "steenvoorden.parq"
+input.birthdates = "steenvoorden_geboortedata.json"
+input.genders = "steenvoorden_geslachtdata.json"
 min_messages = 10
 birthday_dateformat = "%d-%m-%Y"
 congratulations_regex = "(?ui)(gefelici|birthday|hbd|proficiat|🎉|🥳|🎊)"
 congratulations_flags = "ui"
+
+# Les 6
+[ robberts_spelling_bee ]
+suptitle = "Populaties van verschillende leeftijden o.b.v. (on-)juist taalgebruik niet goed uit elkaar te halen"
+title = "Vaak gemaakte taalfouten gecontroleerd op percentage juist met BERT-model RobBERT. Probabilistic PCA uitgevoerd om principale componenten (spelfouten) te ontdekken. Tests: {tests}"
+xlabel = "PPCA1"
+ylabel = "PPCA2"
+input.jong_1 = "KJ.parq"
+input.oud_1 = "steenvoorden.parq"
+input.oud_2 = "obertjes.csv"
+input.oud_3 = "apeldoorn.csv"
+input.jong_2 = "dfa_25.csv"
+
+roberta_model = "pdelobelle/robbert-v2-dutch-base"
+
+sentence_regex = '([^\.!?]*[\.!?])'
+sentence_min_token_len = 4
+
+# From https://www.taalvoutjes.nl/meestgemaakte-taalfouten
+spellcheck.die_dat.regex = '(?<!\w)(die|dat)(?!\w)'
+spellcheck.die_dat.possible_tokens = ["die", "dat"]
+
+spellcheck.hen_hun_zij.regex = '(?<!\w)(hen|hun|zij)(?!\w)'
+spellcheck.hen_hun_zij.possible_tokens = ["hen", "hun", "zij"]
+
+spellcheck.dan_als.regex = '(?<!\w)(dan|als)(?!\w)'
+spellcheck.dan_als.possible_tokens = ["dan", "als"]
+
+spellcheck.me_mijn.regex = '(?<!\w)me(?!\w)'
+spellcheck.me_mijn.possible_tokens = ["me", "mijn"]
+
+spellcheck.teveel_te_veel.regex = '(?<!\w)(teveel|te veel)(?!\w)'
+spellcheck.teveel_te_veel.possible_tokens = ["teveel", "te veel"]
+
+# Model is very bad at differentiating between jou and jouw
+# spellcheck.jou_jouw.regex = '(?<!\w)(jou|jouw)(?!\w)'
+# spellcheck.jou_jouw.possible_tokens = ["jou", "jouw"]

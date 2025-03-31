@@ -1,5 +1,6 @@
 from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
 import matplotlib.pyplot as plt
+import sys
 from requests import get
 import tomllib
 from datetime import datetime
@@ -13,48 +14,33 @@ from io import BytesIO
 import inspect
 import json
 import re
+from loguru import logger
 import logging
 import json
 import statistics
 from scipy.stats import norm
 import random
 import colorsys
+from transformers import RobertaTokenizer, RobertaForMaskedLM
+import torch
+import emoji
+from transformers import RobertaTokenizer, RobertaForMaskedLM
 
-# @dataclass
-class MessageFileLoader():
-    file_stem: str
+logger.level("INFO")
+
+class DataFiles():
     message_file_paths: list[Path]
-    datafiles: list[pd.DataFrame]
+    datafiles: dict[pd.DataFrame]
     images: list[Image]
-    
-    def __init__(self, **kwargs):
-        # Returns location of file initiating this class
-        caller = inspect.stack()[1][1]
-
-        # Getting file name
-        self.file_stem = Path(caller).stem
-
-        if not self.file_stem in config:
-            raise ValueError(f"No variables set for file {self.file_stem}")
-        
-        # Add any settings from config.toml as attributes
-        for key in config[self.file_stem]:
-            setattr(self, key, config[self.file_stem][key])
-        # Add any keyword arguments passed to init as attributes
-        for key in kwargs:
-            setattr(self, key, kwargs[key])
-        
-        if not hasattr(self, "input"):
-            raise ValueError(f"No inputfiles set for script {self.file_stem}")
-        
+    def __init__(self, input):
         self.input_path = (Path("../..") / Path(config["settings"]["processed"])).resolve()
-        self.message_file_paths = [(self.input_path / Path(message_file)).resolve() if not is_hyperlink(message_file) else message_file for message_file in self.input]
-    
-    def get_datafiles(self) -> list[pd.DataFrame]:
-        df_list = [load_dataframe(file, loader=self) for file in self.message_file_paths]
-        self.datafiles = df_list
 
-        return df_list
+        self.message_file_paths = {k : (self.input_path / Path(message_file)).resolve() for (k , message_file) in input.items() if not is_hyperlink(message_file)}
+
+        self.datafiles = {k : load_dataframe(v, loader=self) for (k,v) in self.message_file_paths.items()}
+        
+        for key in self.datafiles:
+            setattr(self, key, self.datafiles[key])
     
     def parse_json(self, json_file: json) -> json:
         """
@@ -79,8 +65,162 @@ class MessageFileLoader():
         
         return self.images
     
+    def all(self, values=False):
+        if values == True:
+            return self.datafiles.values()
+        else:
+            return self.datafiles.items()
+
+# @dataclass
+class MessageFileLoader():
+    file_stem: str
+    datafiles: DataFiles
+    settings: dict
+    
+    def __init__(self, **kwargs):
+        # Returns location of file initiating this class
+        caller = inspect.stack()[1][1]
+
+        # Getting file name
+        self.file_stem = Path(caller).stem
+
+        if not self.file_stem in config:
+            raise ValueError(f"No variables set for file {self.file_stem}")
+        
+        # Add any settings from config.toml as attributes
+        # General settings
+        for key in config["settings"]:
+            setattr(self, key, config["settings"][key])
+        # File specific settings
+        for key in config[self.file_stem]:
+            setattr(self, key, config[self.file_stem][key])
+        # Add any keyword arguments passed to init as attributes
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
+        
+        if not hasattr(self, "input"):
+            raise ValueError(f"No inputfiles set for script {self.file_stem}")
+        
+        self.datafiles = DataFiles(self.input)
+
+        setattr(self, "settings", config["settings"])
+    
     def clean_transform_data(self):
         pass
+
+
+def fast_robbert(sentence: str, mask_regex: re.Match, fast_tokenizer: RobertaTokenizer, fast_robbert: RobertaForMaskedLM, ids: list, possible_tokens: list):
+    """ Use model RobBERT to predict if usage of Dutch words is correct, by letting the BERT model predict the masked word.
+        A lot of code taken from https://github.com/iPieter/RobBERT/blob/master/examples/die_vs_data_rest_api/app/__init__.py """
+    sentence = sentence.lower()
+    response = {"sentence" : sentence}
+    old_pos = 0
+    for match in re.finditer(mask_regex, sentence):
+        # print(
+        #     "match",
+        #     match.group(),
+        #     "start index",
+        #     match.start(),
+        #     "End index",
+        #     match.end(),
+        # )
+        with torch.no_grad():
+            query = (
+                sentence[: match.start()] + "<mask>" + sentence[match.end() :]
+            )
+            # print(query)
+            if match.start() > 0:
+                response["part"] = sentence[old_pos: match.start()]
+
+            old_pos = match.end()
+            inputs = fast_tokenizer.encode_plus(query, return_tensors="pt")
+
+            outputs = fast_robbert(**inputs)
+            masked_position = torch.where(
+                inputs["input_ids"] == fast_tokenizer.mask_token_id
+            )[1]
+            if len(masked_position) > 1:
+                logging.warning("No two queries allowed in one sentence.")
+                break
+
+            # print(outputs.logits[0, masked_position, ids])
+            token = outputs.logits[0, masked_position, ids].argmax()
+
+            confidence = float(outputs.logits[0, masked_position, ids].max())
+
+            response.update({
+                "predicted": possible_tokens[token],
+                "input": match.group(),
+                "interpretation": "correct"
+                if possible_tokens[token] == match.group()
+                else "incorrect",
+                "correct": 1
+                if possible_tokens[token] == match.group()
+                else 0,
+                "confidence": confidence,
+                # "sentence": sentence,
+            })
+    return response
+
+def update_progress_sink(message):
+    sys.stdout.write(f"\r{message.strip()}")  # Overwrite the line
+    sys.stdout.flush()
+
+def roberta_spellcheck_on_series(df, roberta_model, tests, author_col: str="author", message_col: str="message", file_col: str="file"):
+    tokenizer = RobertaTokenizer.from_pretrained(roberta_model)
+    model = RobertaForMaskedLM.from_pretrained(roberta_model)
+    responses = []
+
+    logger.remove()
+    logger.add(update_progress_sink, level="INFO")
+
+    for key, test in tests.items():
+        ids = tokenizer.convert_tokens_to_ids(test["possible_tokens"])
+
+        logger.info(f"Performing spellcheck tests for {key} mistakes")
+        print()
+        i = 1
+        len_series = len(df)
+        for index, row in df.iterrows():
+            response = fast_robbert(row[message_col], test["regex"], tokenizer, model, ids, test["possible_tokens"])
+            logger.info(f"{i} out of {len_series} rows checked...")
+            response[author_col] = row[author_col]
+            response["test"] = key
+            response[file_col] = row[file_col]
+            responses.append(response)
+            i = i + 1
+        print()
+    
+    output_df = pd.json_normalize(responses)
+
+    return output_df
+
+
+def remove_url(text):
+    return re.sub(r"^https?:\/\/.*[\r\n]*", "", text)
+
+def remove_emoji(text):
+    return emoji.replace_emoji(text, replace="")
+
+def remove_image(text):
+    return re.sub(r"<Media weggelaten>", "", text)
+
+def df_contains_multiple_regexes(chat_df: pd.DataFrame, spelling_regexes: list[str], message_col: str="message"):
+    found_list = []
+
+    for regex in spelling_regexes:
+        search_df = chat_df.loc[chat_df[message_col].str.contains(regex, regex=True, na=False)]
+
+        if search_df.empty:
+            continue
+
+        found_list.append(search_df)
+    
+    if len(found_list) == 0:
+        return pd.DataFrame(columns=chat_df.columns)
+    else:
+        return pd.concat(found_list, axis=0, ignore_index=True)
+
 
 class PlotSettings(BaseModel):
     """Base settings for plotting."""
@@ -302,7 +442,7 @@ def load_dataframe(file_path: Path | str, loader: Optional[MessageFileLoader] = 
         if loader is not None and hasattr(loader, "request_headers"):
             headers = loader.request_headers
         file = get_api_data(file_path, headers=headers)
-        parsed_file = loader.parse_json(file.json())
+        parsed_file = loader.datafiles.parse_json(file.json())
         normalized_df = pd.json_normalize(parsed_file)
         return normalized_df
 
@@ -334,12 +474,15 @@ def create_distribution(datapoints: np.array):
 
     return [[datapoints, pdf], [bell_values_x, bell_values_y]]
 
-def get_random_color():
+def get_random_color(hex: bool=False):
     """ Returns random high saturation color """
     h,s,l = random.random(), 0.5 + random.random()/2.0, 0.4 + random.random()/5.0
     r,g,b = [int(256*i) for i in colorsys.hls_to_rgb(h,l,s)]
 
-    return (r, g, b)
+    if hex == True:
+        return '#%02x%02x%02x' % (r, g, b)
+    else:
+        return (r, g, b)
 
 
 with open(Path("../../config.toml").resolve(), "rb") as f:
