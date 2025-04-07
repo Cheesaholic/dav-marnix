@@ -2,6 +2,7 @@
 [ settings ]
 raw = "data/raw"
 processed = "data/processed"
+models = "models"
 
 message_col = "message"
 author_col = "author"
@@ -57,38 +58,39 @@ congratulations_regex = "(?ui)(gefelici|birthday|hbd|proficiat|🎉|🥳|🎊)"
 congratulations_flags = "ui"
 
 # Les 6
-[ robberts_spelling_bee ]
-suptitle = "Populaties van verschillende leeftijden o.b.v. (on-)juist taalgebruik niet goed uit elkaar te halen"
-title = "Vaak gemaakte taalfouten gecontroleerd op percentage juist met BERT-model RobBERT. Probabilistic PCA uitgevoerd om principale componenten (spelfouten) te ontdekken. Tests: {tests}"
-xlabel = "PPCA1"
-ylabel = "PPCA2"
-input.jong_1 = "KJ.parq"
-input.oud_1 = "steenvoorden.parq"
-input.oud_2 = "obertjes.csv"
-input.oud_3 = "apeldoorn.csv"
-input.jong_2 = "dfa_25.csv"
+[ family_group_chat_topics ]
+suptitle = "Familiegroepsapp vooral gebruikt voor status-updates. Clusters: reizen, felicitaties, medisch, weer."
+title = "Gespreksonderwerpen opgehaald met 'sentence-embedding'. Dimensionaliteit verkleind met UMAP. BERT-model: {bert_sentence_model}"
 
-roberta_model = "pdelobelle/robbert-v2-dutch-base"
+# Set to false to train your own model!
+use_pretrained_model = true
+pretrained_model_name = "bertopic_robbert"
 
+input.chat = "steenvoorden.parq"
+# A list of stopwords is optional to better generate topics. If input contains multiple columns, the first column will be used as a list. Remove or comment out if not necessary.
+input.stopwords = "https://raw.githubusercontent.com/stopwords-iso/stopwords-nl/refs/heads/master/stopwords-nl.txt"
+
+# If applicable, a list of names that will be ignored for topics can be entered below. Case insensitive. Also takes Regex.
+family_names = ['marnix', 'nikki', 'diane', 'jaap', 'gerrit', 'gytha', 'stefan', 'ruben', 'bente', 'marian', 'kees', 'opa', 'oma', "tante", "ome", 'mama?', 'papa?', 'yuki']
+
+bert_sentence_model = "NetherlandsForensicInstitute/robbert-2022-dutch-sentence-transformers"
+language = "dutch"
 sentence_regex = '([^\.!?]*[\.!?])'
 sentence_min_token_len = 4
 
-# From https://www.taalvoutjes.nl/meestgemaakte-taalfouten
-spellcheck.die_dat.regex = '(?<!\w)(die|dat)(?!\w)'
-spellcheck.die_dat.possible_tokens = ["die", "dat"]
+# Dimensionality reduction with UMAP - Settings
+umap_neighbors = 15
+umap_n_components = 5
+umap_min_dist = 0.0
+umap_metric = "cosine"
+umap_random_state = 42
 
-spellcheck.hen_hun_zij.regex = '(?<!\w)(hen|hun|zij)(?!\w)'
-spellcheck.hen_hun_zij.possible_tokens = ["hen", "hun", "zij"]
+# Clustering with HDBSCAN - Settings
+hdbscan_min_cluster_size = 20
+hdbscan_metric = "euclidean"
+hdbscan_cluster_selection_method = "eom"
+hdbscan_prediction_data = true
 
-spellcheck.dan_als.regex = '(?<!\w)(dan|als)(?!\w)'
-spellcheck.dan_als.possible_tokens = ["dan", "als"]
-
-spellcheck.me_mijn.regex = '(?<!\w)me(?!\w)'
-spellcheck.me_mijn.possible_tokens = ["me", "mijn"]
-
-spellcheck.teveel_te_veel.regex = '(?<!\w)(teveel|te veel)(?!\w)'
-spellcheck.teveel_te_veel.possible_tokens = ["teveel", "te veel"]
-
-# Model is very bad at differentiating between jou and jouw
-# spellcheck.jou_jouw.regex = '(?<!\w)(jou|jouw)(?!\w)'
-# spellcheck.jou_jouw.possible_tokens = ["jou", "jouw"]
+# Create topics with BERTopic - Settings
+bertopic_top_n_words = 10
+bertopic_verbose = true

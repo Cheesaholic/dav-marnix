@@ -1,5 +1,6 @@
 data
 dev
 notebooks
+models
 
 .venv
