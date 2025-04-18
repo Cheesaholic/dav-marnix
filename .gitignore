@@ -1,0 +1,8 @@
+data
+dev
+notebooks
+models
+__pycache__
+.venv
+.mypy_cache
+.ruff_cache
