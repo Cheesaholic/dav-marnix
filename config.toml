@@ -1,77 +1,143 @@
 # General settings (can be overwritten in file specific configs below)
 [ settings ]
+logging_level = "INFO"
+
 raw = "data/raw"
 processed = "data/processed"
 models = "models"
+img = "img"
 
 message_col = "message"
 author_col = "author"
 timestamp_col = "timestamp"
 
 # Les 2
-[ heatmaps ]
-input.chat = "_chat.txt"
-title = "Weekly Message Activity Heatmap"
-xlabel = "Hour of Day"
-ylabel = "Day of Week"
-linewidths = 0.5
-cmap = "YlGnBu"
-yticks_ticks = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5]
-yticks_labels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-cbar_kws = {'label' = 'Number of Messages'}
-annot = true
-fmt = "d"
+[ full_stopping_and_thinking ]
+
+input.familie = "steenvoorden.csv"
+input.vrienden = "KJ.csv"
+
+min_tokens = 20
+min_long_messages = 10
+end_of_sentence_list = [".", "!", "?"]
+
+uber_suptitle = "Familieleden hebben wél een punt..."
+suptitle = "Personen in de familie-groepsapp zetten gemiddeld vaker {end_of_sentence_list} achter de laatste zin van lange berichten dan personen in de vrienden-groepsapp."
+title = "Elke bol stelt een individuele auteur voor. Lange berichten zijn gedefinieerd als berichten met minstens {min_tokens} woorden. Alleen auteurs met minimaal {min_long_messages} lange berichten zijn meegenomen."
+xlabel = "Percentage lange berichten eindigend op {end_of_sentence_list}"
+percentage = "xaxis"
+category_label_y_offset = -0.2
+category_label_weight = "bold"
+ylabel = ""
 
 # Les 3
 [ worstenbroodjes ]
-input.wikipedia_api = "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/nl.wikipedia.org/all-access/user/Brabants_worstenbroodje/daily/20230101/20250311"
+input.wikipedia_api = "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/nl.wikipedia.org/all-access/user/Brabants_worstenbroodje/daily/20230131/20250105"
+api_data_col = "views"
 api_dt_format = "%Y%m%d%H"
-request_headers = { 'User-Agent' = 'Marn-X/0.1 (marnix.ober@student.hu.nl)' }
+request_headers = { 'User-Agent' = 'Marn-X/0.1 (marnix.ober@student.hu.nl)'}
 json_nests = ["items"]
-images = ["https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/North_Brabant-Flag.svg/1200px-North_Brabant-Flag.svg.png"]
+# images = ["https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/North_Brabant-Flag.svg/1200px-North_Brabant-Flag.svg.png"]
+holidays = [{"name" = "Carnaval", "year" = 2023, "start" = 2023-02-19, "end" = 2023-02-21, "color" = "#ff4d01", "alpha" = 0.3},
+            {"name" = "Carnaval", "year" = 2024, "start" = 2024-02-11, "end" = 2024-02-13, "color" = "#ff4d01", "alpha" = 0.3},
+            {"name" = "Kerstdagen", "year" = 2023, "start" = 2023-12-25, "end" = 2024-01-01, "color" = "#008000", "alpha" = 0.3},
+            {"name" = "Kerstdagen", "year" = 2024, "start" = 2024-12-25, "end" = 2025-01-01, "color" = "#008000", "alpha" = 0.3}]
+annotations = [{"text" = "<-- Peter Gillis (bekend van het eten van worstenbroodjes)\n      veroordeeld voor belastingfraude.", "x" = 2024-02-28, "y" = "YMAX"}]
+annotation_x_offset = 0.05
+aggregation_frequency = "W-MON" # Week, starting on Monday
+fourier_components = 1
+fourier_color = "#0000FF"
+fourier_alpha = 0.5
+fourier_col = "fourier"
+data_color = "#5C4033"
+linewidth = 3
+xlabel = ""
+ylabel = "Pagina-bezoeken\nper week"
+uber_suptitle = "Daar word je helemaal foxwild van..."
+title = "Worstenbroodjes worden in Brabant traditioneel tijdens deze feestdagen gegeten.\nWikipedia's 'pageviews' API gebruikt voor data. Fourier-transform gebruikt met {fourier_components} Fourier-component."
+title_y = 1.01
+suptitle_parts = ["Wikipedia-pagina voor ", "Brabantse worstenbroodjes", "populair rond ", "Carnaval", " en ", "kerstdagen.", "  ", "Fourier", " laat seizoensgebondenheid zien"]
+suptitle_colors = ["none", "{data_color}", "none", "#ff4d01", "none", "#008000", "none", "{fourier_color}", "none"]
+suptitle_y = 1.13
 
 # Les 4
-[ hyperlinks_vs_genders ]
-input.chat = "KJ.csv"
-input.genders = "genders_distribution.json"
-min_messages = 50
-gender_colors = {"F" = "#AA336A", "M" = "#00008B"}
+[ interpunctuality ]
+input.familie = "steenvoorden.csv"
+input.vrienden = "KJ.csv"
 
-suptitle = "Vrouwen sturen in deze groepsapp minder hyperlinks dan mannen! (p = {p})"
-title = "O.b.v. {num_m} mannen en {num_f} vrouwen in een groepsapp. Personen met minder dan {min_messages} berichten weggefilterd."
-xlabel = "Percentage hyperlinks in verhouding tot verstuurde berichten"
+input_settings.familie.type = "norm"
+input_settings.familie.color = "blue"
+
+input_settings.vrienden.type = "halfnorm"
+input_settings.vrienden.color = "green"
+
+norm_alpha = 1
+linewidth = 2
+hist_alpha = 0.5
+
+# Default regex only counts 1 piece of interpunction when repeated (ex: len(?????) = 1)
+interpunction_regex = '(?!(\.|\?|,|!)*\1{1,})(\.|\?|,|!)+'
+word_regex = '\b\w+\b'
+
+min_words = 15
+annotation_x_offset = 0.05
+
+uber_suptitle = "Komma's zijn voor boomers..."
+suptitle_parts = ["Distributie interpunctiegebruik tussen","vrienden-"," en  ", "familiegroepsapp", " erg verschillend. Twee losse populaties zichtbaar."]
+suptitle_colors = ["none", "green", "none", "blue", "none"]
+title = '''Omdat de data deels normaal en deels niet-normaal verdeeld is, zijn non-parametrische toetsen gebruikt.
+Mann–Whitney U-test p-waarde: {p_value_mw}, Kolmogorov–Smirnov-test p-waarde: {p_value_ks}.
+Alleen lange berichten met minimaal {min_words} woorden zijn meegenomen. Interpunctie gedetecteerd met regex: {interpunction_regex}.'''
+xlabel = "Aantal interpunctie-tekens per woord in berichten met {min_words} woorden of meer"
 ylabel = "Waarschijnlijkheidsdichtheid"
+suptitle_y = 1.16
 
 # Les 5
 [ congratulations ]
-suptitle = "Jongere familieleden feliciteren vaker dan ouderen in groepsapp. Wisselend verschil tussen mannen en vrouwen."
-title = "Percentage berekend met verjaardagen die actieve gebruikers sinds hun eerst verstuurde bericht en nu meegemaakt hebben. Gebruiker heeft gefeliciteerd door op verjaardagen een bericht te sturen met RegEx: {congratulations_regex}"
+uber_suptitle = "'Hieperdepiep' van de jongeren: Felicitaties nemen met de jaren af."
+suptitle_parts = ["Jongere familieleden feliciteren vaker dan oudere leden in groepsapp. Negatieve ", "trend", " te zien. Wisselend verschil tussen ", "mannen", " en ", "vrouwen", "."]
+suptitle_parts_x = -0.1
+suptitle_y = 1.18
+suptitle_colors = ["none", "grey", "none", "#00008B", "none", "#AA336A", "none"]
+title = """Het percentage is gebaseerd op het aantal verjaardagen dat een gebruiker sinds zijn of haar eerste bericht in de groepsapp heeft meegemaakt.
+Een felicitatie wordt geteld als de gebruiker op een verjaardag een bericht stuurt dat overeenkomt met de RegEx: {congratulations_regex}.
+De trendlijn is berekend met lineaire regressie (least squares-methode)."""
+marker_size = 50
 xlabel = "Leeftijd familielid"
-ylabel = "Percentage familieleden gefeliciteerd in groepsapp"
-huelabel = "Geslacht"
+ylabel = "Percentage gefeliciteerd"
+percentage = "yaxis"
+hue_label = "Gender"
+hue_dict = {"Man" = "#00008B", "Vrouw" = "#AA336A"}
+input.hue = "steenvoorden_geslachtdata.json"
 input.chat = "steenvoorden.parq"
 input.birthdates = "steenvoorden_geboortedata.json"
-input.genders = "steenvoorden_geslachtdata.json"
 min_messages = 10
 birthday_dateformat = "%d-%m-%Y"
-congratulations_regex = "(?ui)(gefelici|birthday|hbd|proficiat|🎉|🥳|🎊)"
+congratulations_regex = '(?ui)(gefelici|birthday|hbd|proficiat|🎉|🥳|🎊)'
 congratulations_flags = "ui"
 
 # Les 6
 [ family_group_chat_topics ]
+uber_suptitle = "Wie niet reist, niest of jarig is, heeft weinig in te brengen..."
 suptitle = "Familiegroepsapp vooral gebruikt voor status-updates. Clusters: reizen, felicitaties, medisch, weer."
 title = "Gespreksonderwerpen opgehaald met 'sentence-embedding'. Dimensionaliteit verkleind met UMAP. BERT-model: {bert_sentence_model}"
+title_x = 0.53
+title_y = 0.95
+xlabel = "D1"
+ylabel = "D2"
+plotly_width = 1300
+plotly_xref = "paper"
 
 # Set to false to train your own model!
 use_pretrained_model = true
-pretrained_model_name = "bertopic_robbert"
+pretrained_model_name = "bertopic_mark2"
 
 input.chat = "steenvoorden.parq"
 # A list of stopwords is optional to better generate topics. If input contains multiple columns, the first column will be used as a list. Remove or comment out if not necessary.
 input.stopwords = "https://raw.githubusercontent.com/stopwords-iso/stopwords-nl/refs/heads/master/stopwords-nl.txt"
 
-# If applicable, a list of names that will be ignored for topics can be entered below. Case insensitive. Also takes Regex.
-family_names = ['marnix', 'nikki', 'diane', 'jaap', 'gerrit', 'gytha', 'stefan', 'ruben', 'bente', 'marian', 'kees', 'opa', 'oma', "tante", "ome", 'mama?', 'papa?', 'yuki']
+# If applicable, a list of words (or names) that will be ignored for topics can be entered below. Case insensitive. Also takes Regex.
+exclude_terms = ['marnix', 'nikki', 'diane', 'jaap', 'gerrit', 'gytha', 'stefan', 'ruben', 'bente', 'marian', 'kees', 'opa', 'oma', "tante", "ome", 'mama?', 'papa?', 'yuki', 'charlie', 'charley', 'charly', 'moos', 'moosje', 'dikke', 'kus', 'knuffel']
 
 bert_sentence_model = "NetherlandsForensicInstitute/robbert-2022-dutch-sentence-transformers"
 language = "dutch"
@@ -86,10 +152,15 @@ umap_metric = "cosine"
 umap_random_state = 42
 
 # Clustering with HDBSCAN - Settings
-hdbscan_min_cluster_size = 20
+hdbscan_min_cluster_size = 25
 hdbscan_metric = "euclidean"
 hdbscan_cluster_selection_method = "eom"
 hdbscan_prediction_data = true
+
+# Add representation model from Spacy
+# Required command: python3 -m spacy download <model entered below>
+# nl_core_news_sm is installed standard with uv sync
+representation_model = 'nl_core_news_sm'
 
 # Create topics with BERTopic - Settings
 bertopic_top_n_words = 10

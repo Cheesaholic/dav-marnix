@@ -1,65 +1,118 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-import numpy as np
 
 # Local imports
-from settings import MessageFileLoader, PlotSettings, BasePlot, birthday_congratulations, calculate_age, create_regex
+from marn_x.settings import (AllVars, BasePlot, MessageFileLoader,
+                             PlotSettings, author_min_messages,
+                             birthday_congratulations, calculate_age,
+                             create_regex, get_linear_regression)
 
 
-class DistributionLoader(MessageFileLoader):
-    def __init__(self):
-        super().__init__()
-        # super().get_datafiles()
+class FelicitationSettings(PlotSettings):
+    marker_size: int | float
+    hue_label: str
+    hue_dict: dict
+    min_messages: int
+    birthday_dateformat: str
+    congratulations_regex: str
+    congratulations_flags: str
+
+
+class FelicitationLoader(MessageFileLoader):
+    settings: FelicitationSettings
+
+    def __init__(self, settings: FelicitationSettings):
+        super().__init__(settings)
         self.clean_transform_data()
 
     def clean_transform_data(self):
 
-        self.datafiles.chat = self.datafiles.chat.loc[self.datafiles.chat[self.author_col].map(self.datafiles.chat.groupby(self.author_col)[self.message_col].count() >= self.min_messages) == True]
+        self.datafiles.chat = author_min_messages(
+            self.datafiles.chat,
+            self.settings.author_col,
+            self.settings.message_col,
+            self.settings.min_messages,
+        )
 
-        birthday_dict = {k : pd.to_datetime(v, format=self.birthday_dateformat) for k, v in self.datafiles.birthdates.items()}
+        birthday_dict = {
+            k: pd.to_datetime(v, format=self.settings.birthday_dateformat)
+            for k, v in self.datafiles.birthdates.items()
+        }
 
-        congratulations_df = birthday_congratulations(self.datafiles.chat, birthday_dict, create_regex(self.congratulations_regex))
-        
-        congratulations_df[self.xlabel] = [calculate_age(birthday_dict[x]) if x in birthday_dict else 0 for x in congratulations_df[self.author_col]]
+        congratulations_df = birthday_congratulations(
+            self.datafiles.chat,
+            birthday_dict,
+            create_regex(self.settings.congratulations_regex),
+        )
 
-        congratulations_df[self.ylabel] = (congratulations_df["congratulated"] / (congratulations_df["congratulated"] + congratulations_df["not_congratulated"])) * 100
+        congratulations_df[self.settings.xlabel] = [
+            calculate_age(birthday_dict[x]) if x in birthday_dict else 0
+            for x in congratulations_df[self.settings.author_col]
+        ]
 
-        congratulations_df[self.huelabel] = [self.datafiles.genders[x] if x in self.datafiles.genders else "?" for x in congratulations_df[self.author_col]]
+        congratulations_df[self.settings.ylabel] = (
+            congratulations_df["congratulated"]
+            / (
+                congratulations_df["congratulated"]
+                + congratulations_df["not_congratulated"]
+            )
+        ) * 100
 
-        congratulations_df = congratulations_df.loc[congratulations_df[self.xlabel] > 0]
+        congratulations_df[self.settings.hue_label] = [
+            self.datafiles.hue[x] if x in self.datafiles.hue else "?"
+            for x in congratulations_df[self.settings.author_col]
+        ]
+
+        congratulations_df["hue"] = congratulations_df[self.settings.hue_label].map(
+            self.settings.hue_dict
+        )
+
+        congratulations_df = congratulations_df.loc[
+            congratulations_df[self.settings.xlabel] > 0
+        ]
 
         self.datafiles.processed = congratulations_df
 
 
-class DistributionPlotter(BasePlot):
-    def __init__(self, settings):
+class FelicitationPlotter(BasePlot):
+    settings: FelicitationSettings
+
+    def __init__(self, settings: FelicitationSettings):
         super().__init__(settings)
-    
-    def plot(self, loader):
-        super().create_figure(loader=loader)
 
-        sns.scatterplot(x=loader.xlabel, y=loader.ylabel, data=loader.datafiles.processed, hue=loader.huelabel, ec=None, ax=self.ax)
+    def plot(self, data):
+        super().get_figure()
 
-        b, a = np.polyfit(loader.datafiles.processed[loader.xlabel], loader.datafiles.processed[loader.ylabel], deg=1)
-        xseq = np.linspace(loader.datafiles.processed[loader.xlabel].min(), loader.datafiles.processed[loader.xlabel].max())
+        sns.scatterplot(
+            x=self.settings.xlabel,
+            y=self.settings.ylabel,
+            data=data,
+            hue=self.settings.hue_label,
+            palette=data["hue"].to_list(),
+            ec=None,
+            ax=self.ax,
+            s=self.settings.marker_size,
+            legend=False if self.settings.hide_legend else "auto",
+        )
 
-        self.ax.plot(xseq, a + b * xseq, color="k", lw=1, alpha=0.5, label="LSRL")
-        self.ax.legend()
-
-        self.fig.suptitle(loader.suptitle, fontsize=18, y=0.99)
-
-        self.ax.set_title(loader.title.format(congratulations_regex = loader.congratulations_regex), fontsize=10, y=0.995)
+        get_linear_regression(
+            self.ax, data[self.settings.xlabel], data[self.settings.ylabel]
+        )
 
         plt.show()
 
+
 def main():
 
-    loader = DistributionLoader()
+    settings = FelicitationSettings(**AllVars())
 
-    plotter = DistributionPlotter(PlotSettings())
+    loader = FelicitationLoader(settings)
 
-    plotter.plot(loader)
+    plotter = FelicitationPlotter(settings)
+
+    plotter.plot(loader.datafiles.processed)
+
 
 if __name__ == "__main__":
     main()

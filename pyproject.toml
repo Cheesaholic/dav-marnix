@@ -1,8 +1,8 @@
 [project]
-name = "dav-marnix"
+name = "marn_x"
 version = "0.1.0"
 description = "Marnix' repo voor het vak DAV"
-author = "Marnix Ober <marnix.ober@student.hu.nl>"
+authors = [{name = "Marnix Ober", email = "marnix.ober@student.hu.nl"}]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -28,13 +28,16 @@ dependencies = [
     "scipy>=1.15.2",
     "seaborn>=0.13.2",
     "sentence-transformers>=4.0.2",
-    "bertopic>=0.17.0",
+    "bertopic[spacy]>=0.17.0",
     "hdbscan>=0.8.40",
     "protobuf>=3.20.3",
     "transformers>=4.51.0",
     "torch>=2.6.0",
     "accelerate>=1.6.0",
     "umap-learn>=0.5.7",
+    "statsmodels>=0.14.4",
+    "nl-core-news-sm",
+    "types-requests>=2.32.0.20250328",
 ]
 
 [dependency-groups]
@@ -42,6 +45,7 @@ dev = [
     "black[jupyter]>=24.10.0",
     "isort>=5.13.2",
     "jupyter>=1.1.1",
+    "lefthook>=1.11.8",
     "mypy>=1.14.1",
     "notebooktester>=0.2.0",
     "ruff>=0.8.6",
@@ -51,10 +55,16 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[project.scripts]
+"marn_x" = "marn_x.main:main"
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/marn-x"]
+packages = ["src/marn_x"]
 
 [tool.mypy]
 allow_redefinition = true
 ignore_missing_imports = true
 pretty = true
+
+[tool.uv.sources]
+nl-core-news-sm = { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_sm-3.8.0/nl_core_news_sm-3.8.0-py3-none-any.whl" }

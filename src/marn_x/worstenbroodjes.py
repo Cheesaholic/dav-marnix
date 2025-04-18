@@ -1,85 +1,156 @@
-import pandas as pd
+from typing import Optional
+
 import matplotlib.pyplot as plt
-from datetime import datetime
+import numpy as np
+import pandas as pd
 
 # Local import
-from settings import MessageFileLoader, BasePlot, get_carnaval
+from marn_x.settings import (AllVars, BasePlot, MessageFileLoader,
+                             PlotSettings, create_colored_annotation,
+                             create_fourier_wave, fourier_model)
+
+
+class WorstenbroodjesSettings(PlotSettings):
+    api_data_col: str
+    api_dt_format: str
+    holidays: list[dict]
+    aggregation_frequency: str
+    fourier_components: int
+    fourier_color: str
+    fourier_alpha: float
+    fourier_col: str
+    data_color: str
 
 
 class WorstenbroodjesLoader(MessageFileLoader):
-    def __init__(self):
-        super().__init__()
-        super().get_datafiles()
-        super().get_images()
-        self.clean_transform_data()
+    settings: WorstenbroodjesSettings
+
+    def __init__(self, settings: WorstenbroodjesSettings):
+        super().__init__(settings)
 
     def clean_transform_data(self):
 
         df = self.datafiles.wikipedia_api
 
-        df[self.timestamp_col] = pd.to_datetime(df[self.timestamp_col], format=self.api_dt_format)
+        df[self.settings.timestamp_col] = pd.to_datetime(
+            df[self.settings.timestamp_col], format=self.settings.api_dt_format
+        )
 
-        agg = df.groupby([pd.Grouper(key=self.timestamp_col, freq='W-MON')])['views'] \
-                .sum() \
-                .reset_index() \
-                .sort_values(self.timestamp_col) \
-                .set_index(self.timestamp_col) \
+        agg = (
+            df.groupby(
+                [
+                    pd.Grouper(
+                        key=self.settings.timestamp_col,
+                        freq=self.settings.aggregation_frequency,
+                    )
+                ]
+            )[self.settings.api_data_col]
+            .sum()
+            .reset_index()
+            .sort_values(self.settings.timestamp_col)
+            .set_index(self.settings.timestamp_col)
+        )
 
-        self.datafiles.wikipedia_api = agg
+        agg[self.settings.api_data_col] = agg[self.settings.api_data_col].astype(float)
+        agg[self.settings.api_data_col + "_nrm"] = (
+            agg[self.settings.api_data_col] - agg[self.settings.api_data_col].mean()
+        )
+
+        self.datafiles.processed = agg
+
+    def create_fourier_model(
+        self,
+        custom_df: Optional[pd.DataFrame] = None,
+        data_col: Optional[str] = None,
+        fourier_components: Optional[int] = None,
+        fourier_col: Optional[str] = None,
+    ) -> np.ndarray:
+        data = custom_df or self.datafiles.processed
+        data_col = data_col or self.settings.api_data_col
+        fourier_components = fourier_components or self.settings.fourier_components
+        fourier_col = fourier_col or self.settings.fourier_col
+
+        if data is None:
+            raise ValueError(
+                f"No DataFrame to create fourier model for {self.settings.file_stem}"
+            )
+
+        parameters = fourier_model(data[data_col + "_nrm"], fourier_components)
+
+        y = create_fourier_wave(parameters)
+
+        y += data[data_col].mean()
+
+        if not custom_df and self.datafiles.processed is not None:
+            self.datafiles.processed[fourier_col] = y
+
+        return y
+
 
 class WorstenbroodjesPlotter(BasePlot):
-    def __init__(self):
-        super().__init__()
-    
-    def plot(self, loader):
-        loader.datafiles.wikipedia_api.plot.line(linewidth=5, figsize=(20,10), color="#5C4033", legend=False, ax=self.ax)
+    settings: WorstenbroodjesSettings
 
-        # Add Carnaval dates as avxspan
-        for instance in get_carnaval():
-            self.ax.axvspan(instance["start"], instance["end"], facecolor='black', alpha=0.3)
-        
-        # Add annotations
-        self.ax.annotate("Pagina-bezoeken per week", (loader.datafiles.wikipedia_api.index.max(), loader.datafiles.wikipedia_api.iloc[-1][0]), fontsize=12)
-        self.ax.annotate("Peter Gillis veroordeeld voor belastingfraude -->", (datetime(2023, 6, 6), loader.datafiles.wikipedia_api["views"].max()), fontsize=13)
+    def __init__(self, settings: WorstenbroodjesSettings):
+        super().__init__(settings)
 
-        # Add background image
-        self.ax.imshow(loader.get_images()[0], extent=[loader.datafiles.wikipedia_api.index.min(), loader.datafiles.wikipedia_api.index.max(), 0, loader.datafiles.wikipedia_api["views"].max()], alpha=0.2, aspect='auto')
+    def plot(self, data, **kwargs):
+        super().get_figure(**kwargs)
 
-        # Hide x-axis label to reduce clutter
-        self.ax.get_xaxis().get_label().set_visible(False)
+        ann_plt = self.ax.plot(
+            data.index,
+            data[self.settings.api_data_col],
+            linewidth=self.settings.linewidth,
+            color=self.settings.data_color,
+        )
+        self.ax.plot(
+            data.index,
+            data[self.settings.fourier_col],
+            linestyle="--",
+            linewidth=self.settings.linewidth,
+            color=self.settings.fourier_color,
+            alpha=self.settings.fourier_alpha,
+        )
 
-        # Set title
-        self.ax.set_title("Wikipedia-pagina 'Worstenbroodje' populair rond ", fontdict={'fontsize': 40, 'fontweight': 'medium'}, loc="left", pad=20)
+        for instance in self.settings.holidays:
+            self.ax.axvspan(
+                instance["start"],
+                instance["end"],
+                facecolor=instance["color"],
+                alpha=instance["alpha"],
+            )
 
-        # Get title characteristics to add Bbox to last word
-        title = self.ax.title
-        title_pos = title.get_position()
-        title_bbox = title.get_window_extent()
+        # # Add annotations
+        create_colored_annotation(
+            self.ax,
+            self.settings.ylabel,
+            ann_plt[0].get_xydata(),
+            x_y="x",
+            color=self.settings.data_color,
+            x_offset=self.settings.annotation_x_offset,
+            y_offset=self.settings.annotation_y_offset,
+            fontweight="normal",
+            ha="left",
+        )
 
-        # Get coordinates for bbox on last word
-        last_word_x = title_bbox.x1 / self.fig.dpi * 0.05 + 0.3  # Unknown offset needed for coordinates. Will check why in later stage
-        last_word_y = title_pos[1] - 0.077 # Unknown offset needed for coordinates. Will check why in later stage
-
-        # Add the last word with bbox
-        self.ax.text(last_word_x, last_word_y, "Carnaval", fontsize=40, fontweight='medium',
-                bbox=dict(facecolor='black', edgecolor='none', alpha=0.3),
-                transform=self.fig.transFigure, ha='left', va='center')
-        
-        # Hide axis lines
-        self.ax.spines['top'].set_visible(False)
-        self.ax.spines['right'].set_visible(False)
-        self.ax.spines['bottom'].set_visible(False)
-        self.ax.spines['left'].set_visible(False)
-
+        plt.tight_layout()
         plt.show()
+
 
 def main():
 
-    loader = WorstenbroodjesLoader()
+    settings = WorstenbroodjesSettings(**AllVars())
 
-    plotter = WorstenbroodjesPlotter()
+    loader = WorstenbroodjesLoader(settings)
+    loader.clean_transform_data()
+    loader.create_fourier_model()
 
-    plotter.plot(loader)
+    plotter = WorstenbroodjesPlotter(settings)
+
+    plotter.plot(
+        loader.datafiles.processed,
+        ymax=loader.datafiles.processed[settings.api_data_col].max(),
+    )
+
 
 if __name__ == "__main__":
     main()

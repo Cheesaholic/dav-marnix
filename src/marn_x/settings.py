@@ -1,356 +1,606 @@
-from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
-import matplotlib.pyplot as plt
-import sys
-from requests import get
-import tomllib
-from datetime import datetime
-from pathlib import Path
-from typing import Optional
-from pydantic import BaseModel
-import pandas as pd
-import numpy as np
-from PIL import Image
-from io import BytesIO
 import inspect
 import json
 import re
-from loguru import logger
-import logging
-import json
-import statistics
-from scipy.stats import norm
-import random
-import colorsys
-import torch
+import tomllib
+from collections.abc import Mapping
+from datetime import datetime
+from io import BytesIO
+from pathlib import Path
+from typing import Iterable, Literal, Optional
+
 import emoji
-from transformers import RobertaTokenizer, RobertaForMaskedLM
-from sentence_transformers import SentenceTransformer
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from loguru import logger
+from matplotlib.lines import Line2D
+from numpy.typing import ArrayLike
+from PIL import Image
+from pydantic import BaseModel
+from requests import Response, get
+from requests.exceptions import (ConnectionError, HTTPError, RequestException,
+                                 Timeout)
+from scipy.fft import fft, fftfreq
+
+from marn_x.utils.plot_styling import continuous_colored_title
 
 logger.level("INFO")
 
-class DataFiles():
-    message_file_paths: list[Path]
-    datafiles: dict[pd.DataFrame]
-    images: list[Image]
-    def __init__(self, input):
-        self.input_path = (Path("../..") / Path(config["settings"]["processed"])).resolve()
 
-        self.message_file_paths = {k : (self.input_path / Path(message_file)).resolve() for (k , message_file) in input.items() if not is_hyperlink(message_file)}
+class DataFiles:
+    message_file_paths: dict[str, Path | str]
+    datafiles: dict[str, str | pd.DataFrame]
+    request_headers: dict[str, str]
+    json_nests: list[str]
+    images: list[Image.Image]
 
-        self.datafiles = {k : load_dataframe(v, loader=self) for (k,v) in self.message_file_paths.items()}
-        
+    chat: Optional[pd.DataFrame] = None
+    processed: Optional[pd.DataFrame] = None
+    topic_model: Optional[pd.DataFrame] = None
+
+    def __init__(
+        self,
+        input: dict[str, str],
+        processed: str,
+        request_headers: dict,
+        json_nests: list[str],
+    ):
+        self.input_path = (Path(__file__).parent / "../.." / processed).resolve()
+
+        self.message_file_paths = {
+            k: (
+                (self.input_path / Path(message_file)).resolve()
+                if not is_hyperlink(message_file)
+                else message_file
+            )
+            for (k, message_file) in input.items()
+        }
+
+        self.datafiles = {
+            k: load_dataframe(
+                path,
+                self,
+                request_headers=request_headers,
+                json_nests=json_nests,
+            )
+            for (k, path) in self.message_file_paths.items()
+        }
+
         for key in self.datafiles:
+            logger.debug(f"Loaded dataframe from input.{key}")
             setattr(self, key, self.datafiles[key])
-    
-    def parse_json(self, json_file: json) -> json:
+
+    def __iter__(self):
+        return self.datafiles
+
+    def __len__(self) -> int:
+        return len(self.datafiles)
+
+    def parse_json(self, json_file: dict, json_nests: list) -> dict:
         """
-        
+
         Gets nested level belonging to the JSON file from config.toml.
         Uses self.file_stem as suffix.
         Takes and returns JSON. If no config is present, returns same JSON.
-        
+
         """
 
-        if hasattr(self, "nests"):
-            for level in self.nests:
-                json_file = json_file[level]
-        
+        for level in json_nests:
+            json_file = json_file[level]
+
         return json_file
-    
-    def get_images(self):
-        if hasattr(self, "images"):
-            self.images = [load_image(image) for image in self.images]
-        else:
-            raise ValueError(f"images in table {self.file_stem} not found in config.toml")
-        
-        return self.images
-    
-    def all(self, values=False):
-        if values == True:
-            return self.datafiles.values()
+
+    def all(self, values: bool = False) -> Iterable | list:
+        if values:
+            return list(self.datafiles.values())
         else:
             return self.datafiles.items()
 
-# @dataclass
-class MessageFileLoader():
+    def merge(
+        self,
+        files: Optional[list[pd.DataFrame]] = None,
+        capitalize_filename: bool = False,
+    ) -> pd.DataFrame:
+        if not files:
+            files = []
+            for file_name, datafile in self.all():
+                if isinstance(datafile, pd.DataFrame):
+                    if capitalize_filename:
+                        file_name = file_name.capitalize()
+                    datafile["file"] = file_name
+                    files.append(datafile)
+
+        merge = pd.concat(files, axis=0)
+
+        logger.info(f"Merged {len(files)} dataframes.")
+
+        return merge
+
+
+class GeneralSettings(BaseModel):
+    raw: str
+    processed: str
+    models: str
+    img: str
+    message_col: str
+    author_col: str
+    timestamp_col: str
+
+    file_stem: str
+    input: dict[str, str]
+    request_headers: Optional[dict] = None
+    json_nests: Optional[list[str]] = None
+
+
+class PlotSettings(GeneralSettings):
+    """Base settings for plotting."""
+
+    title: str
+    uber_suptitle: Optional[str]
+    xlabel: str
+    ylabel: str
+    figsize: tuple = (12, 6)
+    title_fontsize: int = 8
+    suptitle_fontweight: str = "bold"
+    hide_spines: bool = True
+    hide_axis_label: bool | str = False
+    hide_axis: bool | str = False
+    hide_legend: bool = True
+    suptitle: Optional[str] = None
+    suptitle_x: float = 0.5
+    suptitle_y: float = 1.07
+    suptitle_ha: str = "center"
+    title_x: int | float = 0.5
+    title_y: int | float = 1
+    linewidth: int = 3
+    annotation_fontsize: int = 8
+    annotation_verticalalignment: str = "top"
+    annotations: Optional[list[dict[str, int | float | str]]] = None
+    annotation_x_offset: float = 0
+    annotation_y_offset: float = 0
+    xmax: float = 1
+    ymax: float = 1
+    xmin: float = 0
+    ymin: float = 0
+    suptitle_parts: Optional[list[str]] = None
+    suptitle_parts_x: float = 0.0
+    suptitle_colors: list[str] = [""]
+    suptitle_fontsize: int = 11
+    legend_title: Optional[str] = None
+    percentage: Optional[str] = None
+
+    def __str__(self) -> str:
+        return str(vars(self))
+
+
+class MessageFileLoader:
     file_stem: str
     datafiles: DataFiles
-    settings: dict
-    
-    def __init__(self, **kwargs):
-        # Returns location of file initiating this class
-        caller = inspect.stack()[1][1]
+    images: list[Image.Image]
+    settings: PlotSettings
 
-        # Getting file name
-        self.file_stem = Path(caller).stem
+    def __init__(self, settings: PlotSettings):
+        self.settings = settings
 
-        if not self.file_stem in config:
-            raise ValueError(f"No variables set for file {self.file_stem}")
-        
-        # Add any settings from config.toml as attributes
-        # General settings
-        for key in config["settings"]:
-            setattr(self, key, config["settings"][key])
-        # File specific settings
-        for key in config[self.file_stem]:
-            setattr(self, key, config[self.file_stem][key])
-        # Add any keyword arguments passed to init as attributes
-        for key in kwargs:
-            setattr(self, key, kwargs[key])
-        
-        if not hasattr(self, "input"):
-            raise ValueError(f"No inputfiles set for script {self.file_stem}")
-        
-        self.datafiles = DataFiles(self.input)
-        
-        setattr(self, "settings", config["settings"])
-    
+        self.datafiles = DataFiles(
+            self.settings.input,
+            self.settings.processed,
+            (
+                {}
+                if not self.settings.request_headers
+                else self.settings.request_headers
+            ),
+            ([] if not self.settings.json_nests else self.settings.json_nests),
+        )
+
+    def get_images(self) -> list[Image.Image]:
+        if hasattr(self.settings, "images"):
+            self.images = [load_image(image) for image in self.settings.images]
+        else:
+            raise ValueError(
+                f"images in table {self.settings.file_stem} not found in config.toml"
+            )
+
+        return self.images
+
     def clean_transform_data(self):
         pass
 
 
-def fast_robbert(sentence: str, mask_regex: re.Match, fast_tokenizer: RobertaTokenizer, fast_robbert: RobertaForMaskedLM, ids: list, possible_tokens: list):
-    """ Use model RobBERT to predict if usage of Dutch words is correct, by letting the BERT model predict the masked word.
-        A lot of code taken from https://github.com/iPieter/RobBERT/blob/master/examples/die_vs_data_rest_api/app/__init__.py """
-    sentence = sentence.lower()
-    response = {"sentence" : sentence}
-    old_pos = 0
-    for match in re.finditer(mask_regex, sentence):
-        # print(
-        #     "match",
-        #     match.group(),
-        #     "start index",
-        #     match.start(),
-        #     "End index",
-        #     match.end(),
-        # )
-        with torch.no_grad():
-            query = (
-                sentence[: match.start()] + "<mask>" + sentence[match.end() :]
-            )
-            # print(query)
-            if match.start() > 0:
-                response["part"] = sentence[old_pos: match.start()]
-
-            old_pos = match.end()
-            inputs = fast_tokenizer.encode_plus(query, return_tensors="pt")
-
-            outputs = fast_robbert(**inputs)
-            masked_position = torch.where(
-                inputs["input_ids"] == fast_tokenizer.mask_token_id
-            )[1]
-            if len(masked_position) > 1:
-                logging.warning("No two queries allowed in one sentence.")
-                break
-
-            # print(outputs.logits[0, masked_position, ids])
-            token = outputs.logits[0, masked_position, ids].argmax()
-
-            confidence = float(outputs.logits[0, masked_position, ids].max())
-
-            response.update({
-                "predicted": possible_tokens[token],
-                "input": match.group(),
-                "interpretation": "correct"
-                if possible_tokens[token] == match.group()
-                else "incorrect",
-                "correct": 1
-                if possible_tokens[token] == match.group()
-                else 0,
-                "confidence": confidence,
-                # "sentence": sentence,
-            })
-    return response
-
-def update_progress_sink(message):
-    sys.stdout.write(f"\r{message.strip()}")  # Overwrite the line
-    sys.stdout.flush()
-
-def sentence_encoding_on_series(df, roberta_model, tests, author_col: str="author", message_col: str="message", file_col: str="file"):
-    model = SentenceTransformer('NetherlandsForensicInstitute/robbert-2022-dutch-sentence-transformers')
-
-    # logger.remove()
-    # logger.add(update_progress_sink, level="INFO")
-
-    arr = model.encode(df[message_col])
-
-    arr_df = pd.DataFrame(arr)
-
-    arr_df[file_col] = df[file_col]
-    arr_df[author_col] = df[author_col]
-
-    return arr_df
-
-def roberta_spellcheck_on_series(df, roberta_model, tests, author_col: str="author", message_col: str="message", file_col: str="file"):
-    tokenizer = RobertaTokenizer.from_pretrained(roberta_model)
-    model = RobertaForMaskedLM.from_pretrained(roberta_model)
-    responses = []
-
-    logger.remove()
-    logger.add(update_progress_sink, level="INFO")
-
-    for key, test in tests.items():
-        ids = tokenizer.convert_tokens_to_ids(test["possible_tokens"])
-
-        logger.info(f"Performing spellcheck tests for {key} mistakes")
-        print()
-        i = 1
-        len_series = len(df)
-        for index, row in df.iterrows():
-            response = fast_robbert(row[message_col], test["regex"], tokenizer, model, ids, test["possible_tokens"])
-            logger.info(f"{i} out of {len_series} rows checked...")
-            response[author_col] = row[author_col]
-            response["test"] = key
-            response[file_col] = row[file_col]
-            responses.append(response)
-            i = i + 1
-        print()
-    
-    output_df = pd.json_normalize(responses)
-
-    return output_df
-
-
-def remove_url(text):
+def remove_url(text: str) -> str:
     return re.sub(r"^https?:\/\/.*[\r\n]*", "", text)
 
-def remove_emoji(text):
+
+def remove_emoji(text: str) -> str:
     return emoji.replace_emoji(text, replace="")
 
-def remove_image(text):
+
+def remove_image(text: str) -> str:
     return re.sub(r"<Media weggelaten>", "", text)
 
-def remove_more_information(text):
+
+def remove_more_information(text: str) -> str:
     return re.sub(r"Tik voor meer informatie\.", "", text)
 
-def remove_security_code(text):
+
+def remove_security_code(text: str) -> str:
     return re.sub(r"Je beveiligingscode voor .* is gewijzigd\.", "", text)
 
-def remove_standard_text(text):
-    text = re.sub(r"Dit bericht is verwijderd", "", text)
-    text = re.sub(r"Je beveiligingscode voor .* is gewijzigd\.", "", text)
-    text = re.sub(r"Tik voor meer informatie\.", "", text)
-    return text
 
-def remove_numbers(text):
+def remove_numbers(text: str) -> str:
     return re.sub(r"\d*", "", text)
 
-def remove_family_names(text, family_names: list[str] | str=""):
-    if isinstance(family_names, str):
-        regex = family_names
-    elif isinstance(family_names, list):
-        regex = r"\b(" + "|".join(family_names) + r")\b"
+
+def remove_removed(text: str) -> str:
+    return re.sub(r"Dit bericht is verwijderd", "", text)
+
+
+def remove_edited(text: str) -> str:
+    return re.sub(r"<Dit bericht is bewerkt>", "", text)
+
+
+def remove_exclude_terms(text: str, exclude_terms: list[str] | str = "") -> str:
+    if isinstance(exclude_terms, str):
+        regex = exclude_terms
+    elif isinstance(exclude_terms, list):
+        regex = r"\b(" + "|".join(exclude_terms) + r")\b"
     else:
         raise ValueError("Input must be str or list of str")
     return re.sub(regex, "", text, flags=re.IGNORECASE)
 
-def df_contains_multiple_regexes(chat_df: pd.DataFrame, spelling_regexes: list[str], message_col: str="message"):
-    found_list = []
 
-    for regex in spelling_regexes:
-        search_df = chat_df.loc[chat_df[message_col].str.contains(regex, regex=True, na=False)]
-
-        if search_df.empty:
-            continue
-
-        found_list.append(search_df)
-    
-    if len(found_list) == 0:
-        return pd.DataFrame(columns=chat_df.columns)
-    else:
-        return pd.concat(found_list, axis=0, ignore_index=True)
+def author_min_messages(
+    df: pd.DataFrame, author_col: str, message_col: str, min_messages: int
+) -> pd.DataFrame:
+    return df.loc[
+        df[author_col].map(df.groupby(author_col)[message_col].count() >= min_messages)
+    ]
 
 
-class PlotSettings(BaseModel):
-    """Base settings for plotting."""
-    title: str = ""
-    xlabel: str = ""
-    ylabel: str = ""
-    figsize: tuple = (10, 6)
-    rotation: int = 0
-    legend_title: Optional[str] = None
+class AllVars(Mapping):
+    def __init__(self, **kwargs):
+        if "file_stem" in kwargs:
+            self.file_stem = kwargs["file_stem"]
+        else:
+            self.file_stem = Path(inspect.stack()[1][1]).stem
+
+        # Global toml settings
+        for key in config["settings"]:
+            setattr(self, key, config["settings"][key])
+
+        # Overwrite with file specific settings
+        if self.file_stem in config:
+            for key in config[self.file_stem]:
+                setattr(self, key, config[self.file_stem][key])
+        else:
+            logger.warning(
+                f"No config.toml entry for file {self.file_stem}, continuing..."
+            )
+
+        # Overwrite with any keyword arguments passed to init
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
+
+        logger.debug(f"Retreived {len(self)} variables for {self.file_stem}")
+
+    def __str__(self) -> str:
+        return str(vars(self))
+
+    # Implement some standard methods needed before this class can be a mapping *sigh*
+    def __iter__(self):
+        return iter(vars(self))
+
+    def __getitem__(self, key):
+        return vars(self)[key]
+
+    def __len__(self) -> int:
+        return len(vars(self))
+
 
 class BasePlot:
+    settings: PlotSettings
+    fig: plt.Figure | go.Figure
+    ax: plt.Axes
     """Base class for creating plots."""
+
     def __init__(self, settings: PlotSettings):
         self.settings = settings
-        self.fig = None
-        self.ax = None
-        
-    def create_figure(self, loader: Optional[MessageFileLoader]):
+        self.fig, self.ax = plt.subplots(figsize=self.settings.figsize)
+
+    def create_figure(self, **kwargs) -> tuple:
         """Create a figure and configure it based on settings."""
-        # IMPROVEMENT: Instead of hardcoding figsize=(10, 6) everywhere,
-        # we use the value from settings
-        self.fig, self.ax = plt.subplots(figsize=self.settings.figsize or loader.figsize)
-        
-        # IMPROVEMENT: Instead of repeating these calls in every plotting function,
-        # we centralize them here once
+
+        for key in kwargs:
+            setattr(self.settings, key, kwargs[key])
+
+        # Load all variables from config.toml, for use in format strings in text (global first, then overwritten by variables per file).
+        # If variables passed to function, they are used over config.toml.
+        vars_settings = vars(self.settings)
+
         try:
-            self.ax.set_xlabel(self.settings.xlabel or loader.xlabel)
-            self.ax.set_ylabel(self.settings.ylabel or loader.ylabel)
-            self.ax.set_title(self.settings.title or loader.title)
-        except:
-            raise ValueError("Settings class or config.toml have to be set to plot xlabel, ylabel and title.")
-        
-        # IMPROVEMENT: Legend settings are now configurable
-        if self.settings.legend_title is not None:
+            self.ax.set_xlabel(self.settings.xlabel.format(**vars_settings))
+
+            self.ax.set_ylabel(self.settings.ylabel.format(**vars_settings))
+
+            self.ax.set_title(
+                self.settings.title.format(**vars_settings),
+                fontsize=self.settings.title_fontsize,
+                y=self.settings.title_y,
+                x=self.settings.title_x,
+            )
+        except ValueError:
+            logger.error(
+                "Settings class or config.toml have to be set to plot xlabel, ylabel and title."
+            )
+
+        if self.settings.percentage:
+            if self.settings.percentage in ("x", "xaxis", "both"):
+                self.ax.xaxis.set_major_formatter(mtick.PercentFormatter())
+            if self.settings.percentage in ("y", "yaxis", "both"):
+                self.ax.yaxis.set_major_formatter(mtick.PercentFormatter())
+            if self.settings.percentage not in ("xaxis", "yaxis", "x", "y", "both"):
+                raise ValueError("percentage has to be xaxis or yaxis...")
+
+        if self.settings.uber_suptitle:
+
+            self.fig.suptitle(
+                self.settings.uber_suptitle.format(**vars_settings)
+            ).set_fontweight(self.settings.suptitle_fontweight)
+
+        if self.settings.suptitle_parts:
+
+            continuous_colored_title(
+                self.ax,
+                [
+                    part.format(**vars_settings) if isinstance(part, str) else part
+                    for part in self.settings.suptitle_parts
+                ],
+                [
+                    part.format(**vars_settings) if isinstance(part, str) else part
+                    for part in self.settings.suptitle_colors
+                ],
+                y_position=self.settings.suptitle_y,
+                fontsize=self.settings.suptitle_fontsize,
+                start_x=self.settings.suptitle_parts_x,
+            )
+
+        if self.settings.suptitle:
+
+            self.ax.text(
+                self.settings.suptitle_x,
+                self.settings.suptitle_y,
+                self.settings.suptitle.format(**vars_settings),
+                horizontalalignment=self.settings.suptitle_ha,
+                transform=self.ax.transAxes,
+                fontsize=self.settings.suptitle_fontsize,
+            )
+
+        if self.settings.annotations:
+            for instance in self.settings.annotations:
+                self.ax.annotate(
+                    str(instance["text"]),
+                    (
+                        (
+                            float(
+                                self.settings.xmax
+                                if instance["x"] == "XMAX"
+                                else instance["x"]
+                            )
+                        ),
+                        (
+                            float(
+                                self.settings.ymax
+                                if instance["y"] == "YMAX"
+                                else instance["y"]
+                            )
+                        ),
+                    ),
+                    fontsize=self.settings.annotation_fontsize,
+                    verticalalignment=self.settings.annotation_verticalalignment,
+                )
+
+        if self.settings.hide_spines:
+            self.ax.spines["top"].set_visible(False)
+            self.ax.spines["right"].set_visible(False)
+            self.ax.spines["bottom"].set_visible(False)
+            self.ax.spines["left"].set_visible(False)
+
+        if self.settings.hide_axis in ("x", "xaxis", "both", True):
+            self.ax.get_xaxis().set_visible(False)
+        if self.settings.hide_axis in ("y", "yaxis", "both", True):
+            self.ax.get_yaxis().set_visible(False)
+
+        if self.settings.hide_axis_label in ("x", "xaxis", "both", True):
+            self.ax.get_xaxis().get_label().set_visible(False)
+        if self.settings.hide_axis_label in ("y", "yaxis", "both", True):
+            self.ax.get_yaxis().get_label().set_visible(False)
+
+        if self.settings.legend_title:
             self.ax.legend(title=self.settings.legend_title)
-            
-        plt.tight_layout()
+
+        if self.settings.hide_legend and self.ax.get_legend():
+            self.ax.get_legend().set_visible(False)
+
+        self.fig.tight_layout()
         return self.fig, self.ax
-    
-        # this helps us use the figure in other classes
-        # this is the Open-Closed principle;
-        # make code CLOSED for modification (is essence, we will probably never 
-        # need to modify the BasePlot class) but OPEN for extension if we want to
-        # add more features
-    def get_figure(self):
+
+    def get_figure(self, **kwargs) -> tuple:
         """Return the figure, creating it if needed."""
-        if self.fig is None:
-            self.create_figure()
-        return self.fig
+        if self.fig is None or len(kwargs) > 0:
+            self.create_figure(**kwargs)
+        return self.fig, self.ax
 
-def is_hyperlink(path: str) -> bool:
-    return bool(re.search(r"https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$", path))
+    def save_to_png(
+        self,
+        fig: Optional[go.Figure | plt.Figure],
+        path: Optional[Path] = None,
+    ) -> Path:
+        fig = fig or self.fig
 
-def is_datafile_exists(path: Path) -> bool:
-    """
-    Checks if a entered path,file combination exists. 
+        if fig is None:
+            raise ValueError(f"No fig to save for {self.settings.file_stem}")
 
-    Returns bool.
-    """
+        if not path:
+            now = datetime.now().strftime("%Y%m%d-%H%M%S")
+            path = (
+                Path().cwd()
+                / self.settings.img
+                / f"{self.settings.file_stem}-{now}.png"
+            )
 
-    if path.is_file():
-        return True
-    else:
+        if isinstance(fig, go.Figure):
+            fig.write_image(path)
+        elif isinstance(fig, plt.Figure):
+            fig.savefig(path)
+
+        logger.info(f"Succesfully written plot to {path}")
+
+        return path
+
+
+def is_hyperlink(path: str | Path) -> bool:
+    if isinstance(path, Path):
         return False
+    return bool(
+        re.search(
+            r"https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$",
+            str(path),
+        )
+    )
 
-def get_carnaval():
-    return [
-        {"year": 2023,
-         "start": datetime(2023,2,19),
-         "end": datetime(2023,2,21)},
-        {"year": 2024,
-         "start": datetime(2024,2,11),
-         "end": datetime(2024,2,13)},
-        {"year": 2025,
-         "start": datetime(2025,3,1),
-         "end": datetime(2025,3,4)}]
 
-def get_birthdays(birthday: pd.Timestamp, from_date: pd.Timestamp, to_date: pd.Timestamp):
+def fourier_model(timeseries: list | pd.Series, k: int) -> dict:
+    # Calculate the number of data points in the timeseries
+    T = 1.0
+    N = len(timeseries)
+    # Generate a time vector 'x' from 0 to N*T (excluding the endpoint) evenly spaced
+    x = np.linspace(0.0, N * T, N, endpoint=False)
+    # Perform the Fourier Transform of the timeseries
+    yf = fft(timeseries)
+    # Generate the frequency bins for the first half of the Fourier Transform result
+    # This represents the positive frequencies up to the Nyquist frequency
+    xf = fftfreq(N, T)[: N // 2]
+    # Identify indices of the 'k' largest frequencies by their magnitude in the first half of the Fourier spectrum
+    indices = np.argsort(np.abs(yf[0 : N // 2]))[-k:]
+    # Extract the frequencies corresponding to the 'k' largest magnitudes
+    frequencies = xf[indices]
+    # Calculate the amplitudes of these frequencies as twice the magnitude divided by N
+    # This accounts for the symmetry of the Fourier Transform for real signals
+    amplitudes = 2.0 / N * np.abs(yf[indices])
+    # Extract the phases of these frequencies and adjust by adding pi/2 to align phases
+    phases = np.angle(yf[indices]) + 1 / 2 * np.pi
+    # Return a dictionary of the model parameters: 'x', 'frequencies', 'amplitudes', 'phases'
+    return {
+        "x": x,
+        "frequencies": frequencies,
+        "amplitudes": amplitudes,
+        "phases": phases,
+    }
+
+
+def create_colored_annotation(
+    ax: plt.Axes,
+    text: str,
+    points: list[list[int | float]] | ArrayLike,
+    color: Optional[str | int | float] = None,
+    highest_lowest: Literal["highest", "lowest"] = "highest",
+    x_y: Literal["x", "y"] = "y",
+    x_offset: float = 0.0,
+    y_offset: float = 0.0,
+    ha: str = "center",
+    fontweight: str = "bold",
+):
+    color = color or "black"
+
+    dim = 1 if x_y == "y" else 0
+
+    # Find the point with the highest/lowest x/y-value
+
+    if not (isinstance(points, list)):
+        raise ValueError("Niet goed omgevormd")
+
+    if highest_lowest == "highest":
+        x_coord, y_coord = max(points, key=lambda p: p[dim])
+    else:
+        x_coord, y_coord = min(points, key=lambda p: p[dim])
+
+    # Label it
+    ax.text(
+        x_coord + x_offset,
+        y_coord + y_offset,
+        text,
+        ha=ha,
+        color=color,
+    ).set_fontweight(fontweight)
+
+
+def create_fourier_wave(parameters: dict) -> np.ndarray:
+    # Extract the time vector 'x' from the parameters
+    x = parameters["x"]
+    # Extract the frequencies, amplitudes, and phases from the parameters
+    frequencies = parameters["frequencies"]
+    amplitudes = parameters["amplitudes"]
+    phases = parameters["phases"]
+
+    # Initialize a zero array 'y' of the same shape as 'x' to store the model output
+    y = np.zeros_like(x)
+
+    # Add each sine wave component to 'y' based on the extracted frequencies, amplitudes, and phases
+    for freq, amp, phase in zip(frequencies, amplitudes, phases):
+        y += amp * np.sin(2.0 * np.pi * freq * x + phase)
+
+    # Return the composite signal 'y' as the sum of the sine wave components
+    return y
+
+
+def get_linear_regression(
+    ax: plt.Axes,
+    data_x: pd.Series,
+    data_y: pd.Series,
+    color="k",
+    lw=1,
+    alpha=0.5,
+    label="LSRL",
+) -> list[Line2D]:
+    b, a = np.polyfit(
+        data_x,
+        data_y,
+        deg=1,
+    )
+
+    xseq = np.linspace(
+        data_x.min(),
+        data_x.max(),
+    )
+
+    return ax.plot(xseq, a + b * xseq, color=color, lw=lw, alpha=alpha, label=label)
+
+
+def get_birthdays(
+    birthday: pd.Timestamp, from_date: pd.Timestamp, to_date: pd.Timestamp
+) -> pd.DatetimeIndex:
 
     date_range = pd.date_range(start=from_date, end=to_date)
 
     day = birthday.day
     month = birthday.month
 
-    birthdays = date_range[(date_range.day == day) & (date_range.month == month)].floor("d")
+    birthdays = date_range[(date_range.day == day) & (date_range.month == month)].floor(
+        "d"
+    )
 
     return birthdays
 
-def create_birthday_list(author, birthday, message_data):
 
-    first_message = message_data.loc[message_data["author"] == author]["timestamp"].min()
+def create_birthday_list(
+    author: str, birthday: pd.Timestamp, message_data: pd.DataFrame
+) -> pd.DataFrame:
+
+    first_message = message_data.loc[message_data["author"] == author][
+        "timestamp"
+    ].min()
     last_message = message_data["timestamp"].max()
 
     birthdays = pd.DataFrame(index=get_birthdays(birthday, first_message, last_message))
@@ -359,28 +609,55 @@ def create_birthday_list(author, birthday, message_data):
 
     return birthdays
 
-def how_many_congratulations(message_data, author, birthdays, congratulations_regex):
 
-    first_message = message_data.loc[message_data["author"] == author]["timestamp"].min()
+def how_many_congratulations(
+    message_data: pd.DataFrame,
+    author: str,
+    birthdays: pd.DataFrame,
+    congratulations_regex: re.Pattern,
+) -> tuple:
+
+    first_message = message_data.loc[message_data["author"] == author][
+        "timestamp"
+    ].min()
     last_message = message_data["timestamp"].max()
 
-    congratulations = message_data.loc[(message_data["message"].str.match(congratulations_regex)) & \
-                                        (message_data["author"] == author)]["timestamp"].dt.floor("D").to_list()
+    congratulations = (
+        message_data.loc[
+            (
+                message_data["message"].str.match(
+                    congratulations_regex.pattern, flags=congratulations_regex.flags
+                )
+            )
+            & (message_data["author"] == author)
+        ]["timestamp"]
+        .dt.floor("D")
+        .to_list()
+    )
 
     if len(birthdays) < 1:
         return 0, 0
 
     birthdays = birthdays.reset_index(names="timestamp")
 
-    birthdays = birthdays.loc[(birthdays["author"] != author) & (birthdays["timestamp"] >= first_message) & (birthdays["timestamp"] <= last_message)]
+    birthdays = birthdays.loc[
+        (birthdays["author"] != author)
+        & (birthdays["timestamp"] >= first_message)
+        & (birthdays["timestamp"] <= last_message)
+    ]
 
     congratulated = len(birthdays.loc[birthdays["timestamp"].isin(congratulations)])
 
-    not_congratulated = len(birthdays.loc[~birthdays["timestamp"].isin(congratulations)])
+    not_congratulated = len(
+        birthdays.loc[~birthdays["timestamp"].isin(congratulations)]
+    )
 
     return congratulated, not_congratulated
 
-def birthday_congratulations(message_data: pd.DataFrame, birthday_json: json, congratulations_regex: re.match):
+
+def birthday_congratulations(
+    message_data: pd.DataFrame, birthday_json: dict, congratulations_regex: re.Pattern
+) -> pd.DataFrame:
 
     authors = message_data["author"].unique()
 
@@ -389,72 +666,97 @@ def birthday_congratulations(message_data: pd.DataFrame, birthday_json: json, co
     for author in authors:
 
         if author not in birthday_json:
-            logging.warning(f"No birthday for {author} in birthday-JSON, continuing...")
+            logger.warning(f"No birthday for {author} in birthday-JSON, continuing...")
             continue
-        
-        birthday_list = create_birthday_list(author, birthday_json[author], message_data)
+
+        birthday_list = create_birthday_list(
+            author, birthday_json[author], message_data
+        )
 
         if birthday_df.empty:
             birthday_df = birthday_list
         else:
             birthday_df = pd.concat([birthday_df, birthday_list])
-    
-    birthday_list.sort_index(inplace=True)
-    
-    congratulated_df = pd.DataFrame(columns=["author", "congratulated", "not_congratulated"])
-    
-    for author in authors:
-        congratulated, not_congratulated = how_many_congratulations(message_data, author, birthday_df, congratulations_regex)
 
-        congratulated_df.loc[len(congratulated_df)] = [author, congratulated, not_congratulated]
+    birthday_list.sort_index(inplace=True)
+
+    congratulated_df = pd.DataFrame(
+        columns=["author", "congratulated", "not_congratulated"]
+    )
+
+    for author in authors:
+        congratulated, not_congratulated = how_many_congratulations(
+            message_data, author, birthday_df, congratulations_regex
+        )
+
+        congratulated_df.loc[len(congratulated_df)] = [
+            author,
+            congratulated,
+            not_congratulated,
+        ]
 
     return congratulated_df
 
-def create_regex(regex, flags=re.I|re.U):
+
+def create_regex(regex: str, flags: re.RegexFlag = re.I | re.U) -> re.Pattern:
     return re.compile(regex, flags)
 
-def calculate_age(birthday: pd.Timestamp):
+
+def calculate_age(birthday: pd.Timestamp) -> float:
 
     return (datetime.now() - birthday) / pd.Timedelta(365.25, "d")
 
-def get_api_data(endpoint: str, headers: dict = {}, payload: dict = {}) -> list:
-    """ Connects to API via endpoint and variables in string.
-        Returns JSON-object. """
-    
-    logging.debug(f"API Call. Endpoint: {endpoint}, headers: {headers}, payload: {payload}")
+
+def get_api_data(endpoint: str, headers: dict = {}, payload: dict = {}) -> Response:
+    """Connects to API via endpoint and variables in string.
+    Returns JSON-object."""
+
+    logger.debug(
+        f"API Call. Endpoint: {endpoint}, headers: {headers}, payload: {payload}"
+    )
 
     try:
         # Fire response. Throw error if request takes longer than 20 seconds
         response = get(endpoint, headers=headers, data=payload, timeout=20)
 
-        logging.debug(f"API HTML response-code {response.status_code}")
+        logger.debug(f"API HTML response-code {response.status_code}")
 
         # Raises HTTPError for bad responses (4xx or 5xx)
-        response.raise_for_status() 
+        response.raise_for_status()
 
-        return response
-    
     except HTTPError as http_err:
-        logging.error(f'HTTP error occurred: {http_err}')  # e.g., 404 Not Found, 500 Internal Server Error
+        logger.error(
+            f"HTTP error occurred: {http_err}"
+        )  # e.g., 404 Not Found, 500 Internal Server Error
     except ConnectionError as conn_err:
-        logging.error(f'Connection error occurred: {conn_err}')  # Issues with network connectivity
+        logger.error(
+            f"Connection error occurred: {conn_err}"
+        )  # Issues with network connectivity
     except Timeout as timeout_err:
-        logging.error(f'Timeout error occurred: {timeout_err}')  # Request timed out
+        logger.error(f"Timeout error occurred: {timeout_err}")  # Request timed out
     except RequestException as req_err:
-        logging.error(f'An error occurred: {req_err}')  # Catch-all for any other request-related errors
+        logger.error(
+            f"An error occurred: {req_err}"
+        )  # Catch-all for any other request-related errors
     except ValueError as json_err:
-        logging.error(f'JSON decoding failed: {json_err}')  # Issues with decoding the JSON response
+        logger.error(
+            f"JSON decoding failed: {json_err}"
+        )  # Issues with decoding the JSON response
+
+    return response
 
 
-def load_image(path: Path | str):
-    """ 
-    
-    Get image from path / Download image-data from URL and load into return variable.
-    Takes pathlib.Path or url-string. Returns Pillow image object. 
-    
+def load_image(
+    path: Path | str, image_data: Optional[Path | str | BytesIO] = None
+) -> Image.Image:
     """
 
-    if is_hyperlink(path):
+    Get image from path / Download image-data from URL and load into return variable.
+    Takes pathlib.Path or url-string. Returns Pillow image object.
+
+    """
+
+    if not isinstance(path, Path) and is_hyperlink(path):
         response = get_api_data(path)
         image_data = BytesIO(response.content)
     else:
@@ -465,34 +767,39 @@ def load_image(path: Path | str):
     return img
 
 
-def load_dataframe(file_path: Path | str, loader: Optional[MessageFileLoader] = None, delimiter: str = ",") -> pd.DataFrame:
+def load_dataframe(
+    file_path: Path | str,
+    datafiles: DataFiles,
+    delimiter: str = ",",
+    request_headers: dict = {},
+    json_nests: list[str] = [],
+) -> pd.DataFrame:
     """
 
     Loads a file into a pandas DataFrame. Supports CSV, TXT, and Parquet files.
-    
+
     Takes pathhlib Path, optional keyword argument for csv delimiter
     returns dataframe
     raises ValueError if file doesn't exist.
 
     """
-    
-    if isinstance(file_path, str) and file_path.startswith("http"):
-        headers = {}
-        if loader is not None and hasattr(loader, "request_headers"):
-            headers = loader.request_headers
-        file = get_api_data(file_path, headers=headers)
+
+    if isinstance(file_path, str):
         if file_path.endswith(".txt"):
-            return pd.read_csv(file)
+            return pd.read_csv(file_path)
         else:
-            parsed_file = loader.datafiles.parse_json(file.json())
+            file = get_api_data(file_path, headers=request_headers)
+            parsed_file = datafiles.parse_json(file.json(), json_nests)
             normalized_df = pd.json_normalize(parsed_file)
             return normalized_df
 
-    if not is_datafile_exists(file_path):
-        raise FileNotFoundError(f"File {file_path.name} not found in {file_path.parents[0]}. Make sure the filename is correctly defined in config.toml")
-    
+    if not file_path.is_file():
+        raise FileNotFoundError(
+            f"File {file_path.name} not found in {file_path.parents[0]}. Make sure the filename is correctly defined in config.toml"
+        )
+
     file_extension = file_path.suffix
-    
+
     if file_extension == ".csv":
         return pd.read_csv(file_path, delimiter=delimiter)
     elif file_extension == ".txt":
@@ -503,29 +810,10 @@ def load_dataframe(file_path: Path | str, loader: Optional[MessageFileLoader] = 
         with open(file_path) as f:
             return json.load(f)
     else:
-        raise ValueError(f"Unsupported file type: {file_extension}. Supported types: csv, txt, parq/parquet.")
-
-def create_distribution(datapoints: np.array):
-    mean = statistics.mean(datapoints) 
-    sd = statistics.stdev(datapoints)
-
-    pdf = norm.pdf(datapoints, mean, sd)
-
-    bell_values_x = np.linspace(mean - 3*sd, mean + 3*sd, 1000)
-    bell_values_y = norm.pdf(bell_values_x, mean, sd)
-
-    return [[datapoints, pdf], [bell_values_x, bell_values_y]]
-
-def get_random_color(hex: bool=False):
-    """ Returns random high saturation color """
-    h,s,l = random.random(), 0.5 + random.random()/2.0, 0.4 + random.random()/5.0
-    r,g,b = [int(256*i) for i in colorsys.hls_to_rgb(h,l,s)]
-
-    if hex == True:
-        return '#%02x%02x%02x' % (r, g, b)
-    else:
-        return (r, g, b)
+        raise ValueError(
+            f"Unsupported file type: {file_extension}. Supported types: csv, txt, parq/parquet, json."
+        )
 
 
-with open(Path("../../config.toml").resolve(), "rb") as f:
+with open((Path(__file__).parent / "../../config.toml").resolve(), "rb") as f:
     config = tomllib.load(f)
