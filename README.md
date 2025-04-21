@@ -1,6 +1,6 @@
-# Marnix Ober 1890946
+# Marn_X - Marnix Ober 1890946
 
-This project provides a framework for creating visualizations based on configurations specified in `config.toml` files. Each Python module reads its settings from a corresponding table in the `config.toml`, ensuring a modular and organized approach to configuration management.
+This project is set up to perform the exercises contained in the module Data Analysis & Visualization of the Master of Informatics - Applied Data Science ([MADS-DAV](https://github.com/raoulg/MADS-DAV)). The project tries to be as modular as possible, with almost all variables and settings being alterable without editing the code. Each Python module reads its settings from a corresponding table in the `config.toml` file in the main directory. Data can also be passed to the preprocessors and plotters by passing them to these classes.
 
 ## Features
 
@@ -27,43 +27,138 @@ This project provides a framework for creating visualizations based on configura
    ```bash
    uv sync
    ```
+## Classes Available
+
+### AllVars
+The AllVars class loads all global settings from the `config.toml` file in the main directory of the project. These global settings are then overwritten by specific settings from individual files (if defined). These specific settings can also be overwritten by passing settings with the same name to the class when initializing. See [Usage](#usage) below for examples.
+
+### GeneralSettings(BaseModel)
+Settings that almost every file needs.
+
+### PlotSettings(GeneralSettings)
+Settings specific for plotting. These contain a few standard values that can be overwritten by using the AllVars class.
+
+### IndividualSettings(PlotSettings)
+Not acually called IndividualSettings, but has another name specific to the file. These settings are almost always only used by one plot.
+
+### MessageFileLoader
+Parses dict with datafiles passed as `input` setting and loads datafiles into datafiles attribute (as DataFiles class).
+
+### DataFiles
+Initialized by `MessageFileLoader`, loads datafiles (ex. csv, parq, txt, json) and makes them available as attributes to this class as Pandas DataFrames (except for json-objects which are dicts).
+
+### IndividualLoader(MessageFileLoader)
+Not acually called IndividualLoader, but has another name specific to the file. Takes `IndividualSettings` object when initializing. Performs preprocessing specific for file. Almost always outputs to attribute 'processed'.
+
+### BasePlot
+Creates general environment that almost all plots need.
+Method `create_figure` sets almost all characteristics of the plot. This method uses (child of) `PlotSettings` object to edit Matplotlib Figure and Axes settings.
+
+### IndividualPlot(BasePlot)
+Not acually called IndividualPlot, but has another name specific to the file. Takes `IndividualSettings` object when initializing. Calls `BasePlot` to create Matplotlib environment. Performs actions specific to the file. Can be passed settings to change them last-minute.
 
 ## Usage
 
 1. **Configure Settings:**
 
-   Define your settings in the `config.toml` file. Each table should correspond to a Python file name. For example:
+   Define your settings in the `config.toml` file. Each table should correspond to a Python file name. All variables passed here are available to the corresponding preprocessors and plotters. Example:
 
    ```toml
-   [module_name]
+   [ file_name ]
    setting1 = "value1"
    setting2 = "value2"
+   setting3 = 1970-01-01
+   setting4 = ["value3", "value4"]
+   # settings.setting3 -> date(1970, 1, 1)
    ```
 
-2. **Load Configurations:**
+2. **Load DataFiles:**
 
-   Utilize the `MessageFileLoader` class to load configurations:
+   In the same `config.toml` file, in front of or after the settings, pass 'data files' to the 'input' setting. Place files with filenames  corresponding to the values you enter into the 'raw' folder. The location of the 'raw' folder is defined in the `config.toml`. The `AllVars` class will try to load your datafile and make it available as an attribute to individual children of the MessageFileLoader class.
 
+   ```toml
+   [ file_name ]
+   setting1 = "value1", # etc....
+   
+   input.chat = "friends.csv"
+   # <loader>.datafiles.chat available as Pandas DataFrame
+   ```
+
+3. **Load Settings with AllVars:**
+
+   Use the the `AllVars` class to load settings.
+   When initializing, the class will try to load variables from the `config.toml` corresponding to the filename calling the class. If none are available: please pass all necessary attributes to the `AllVars` class to ensure the pipeline runs smoothly.
+
+   #### myfile.py
    ```python
-   from settings import MessageFileLoader
+   from marn_x.settings import AllVars
 
-   loader = MessageFileLoader()
+   settings = AllVars(setting1="foo")
+   # Loading all global settings from config.toml, overwriting with specifics from section [ myfile ], overwriting with variables passed to AllVars
+   ```
+   When loading from a Jupyter Notebook, or to load specifics from a file with another filename than the caller, pass the filename corresponding with the required settings to the `file_stem` setting, when initializing AllVars:
+   #### other_file_without_settings.py
+   ```python
+   from marn_x.settings import AllVars
+
+   settings = AllVars(setting1="foo", file_stem="myfile")
+   # Loading all global settings from config.toml, overwriting with specifics from section [ myfile ], overwriting with variables passed to AllVars
    ```
 
-3. **Generate Visualizations:**
+4. **Load Data with MessageFileLoader**
+
+   When setting up a config.toml file as described in step 2, the file is available in the following way:
+   #### myfile.py
+   ```python
+   class MySettings(PlotSettings):
+      setting1: str # etc..
+
+   class MyLoader(MessageFileLoader):
+      settings: MySettings
+
+      def __init__(self, settings: MySettings):
+         super().__init__(settings)
+
+   
+   def main():
+      settings = MySettings(AllVars())
+      loader = MyLoader(settings)
+
+      print(loader.datafiles.chat) 
+   # pd.DataFrame containing data from friends.csv
+   ```
+
+
+5. **Generate Visualizations:**
 
    Implement your visualization logic using the loaded configurations. For example:
 
+   #### config.toml
+   ```toml
+   [ file_name ]
+   title = "My Title"
+   xlabel = "xvalue"
+   ylabel = "yvalue"
+   ```
+   #### myfile.py
    ```python
-   import matplotlib.pyplot as plt
+   ...
 
-   # Example data
-   data = [1, 2, 3, 4, 5]
+   class IndividualPlotter(BasePlot):
+      settings: IndividualSettings
 
-   # Plotting
-   plt.plot(data)
-   plt.title(config.plot_title)
-   plt.show()
+      def __init__(self, settings: IndividualSettings):
+         super().__init__(settings)
+
+      def plot(self, data, **kwargs):
+         super().get_figure(**kwargs)
+
+         self.ax.plot(data.x, data.y)
+         
+         plt.show()
+         self.save_png()
+
+   # Plot with title: Myitle, x_label: xvalue, y_label: yvalue and data from data gets shown to user and saved to png
    ```
 
 ## Contributing

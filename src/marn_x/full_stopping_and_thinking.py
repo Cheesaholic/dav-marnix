@@ -1,18 +1,27 @@
+from typing import Literal
+
+import matplotlib.markers as mmarkers
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Local imports
 from marn_x.settings import (AllVars, BasePlot, MessageFileLoader,
-                             PlotSettings, remove_emoji, remove_image,
-                             remove_numbers, remove_url)
+                             PlotSettings, create_colored_annotation,
+                             remove_emoji, remove_image, remove_numbers,
+                             remove_url)
+from marn_x.utils.plot_styling import stripplot_mean_line
 
 
 class PeriodSettings(PlotSettings):
+    markers: list[str]
+    marker_size: int | float
     min_tokens: int
     min_long_messages: int
     end_of_sentence_list: list[str]
-    category_label_y_offset: float
-    category_label_weight: str
+    annotation_location_highest_lowest: Literal["higest", "lowest"]
+    annotation_location_x_y: Literal["x", "y"]
+    mean_color: str
+    mean_alpha: float | int
 
 
 class PeriodLoader(MessageFileLoader):
@@ -73,10 +82,11 @@ class PeriodPlotter(BasePlot):
         super().__init__(settings)
 
     def plot(self, data, **kwargs):
-        super().create_figure(
+        super().get_figure(
             end_of_sentence_list=" ".join(self.settings.end_of_sentence_list), **kwargs
         )
 
+        # Filter long messages (for future use in dashboard)
         data = data.loc[data["cnt_long_messages"] >= self.settings.min_long_messages]
 
         sns.stripplot(
@@ -84,35 +94,45 @@ class PeriodPlotter(BasePlot):
             x="pct_endswith_period",
             y="file",
             hue="file",
+            size=self.settings.marker_size,
             jitter=True,
             ax=self.ax,
         )
 
-        labels = [x.get_text() for x in self.ax.get_yticklabels()]
+        stripplot_mean_line(
+            self.ax,
+            data,
+            "pct_endswith_period",
+            "file",
+            color=self.settings.mean_color,
+            alpha=self.settings.mean_alpha,
+        )
 
-        self.ax.get_yaxis().set_visible(False)
+        labels = [x.get_text() for x in self.ax.get_yticklabels()]
 
         for collection_num in range(len(self.ax.collections)):
 
-            # Get all the plotted points (as matplotlib PathCollections)
-            points = self.ax.collections[collection_num].get_offsets()
-
-            color = self.ax.collections[collection_num].get_facecolor()[0]
-
-            # Find the point with the lowest x-value
-            highest_point = min(points, key=lambda p: p[0])
-            x_coord, y_coord = highest_point
-
-            # Optional: label it
-            self.ax.text(
-                x_coord,
-                y_coord + self.settings.category_label_y_offset,
+            create_colored_annotation(
+                self.ax,
                 labels[collection_num],
-                ha="center",
-                color=color,
-            ).set_fontweight(self.settings.category_label_weight)
+                self.ax.collections[collection_num].get_offsets(),
+                highest_lowest=self.settings.annotation_location_highest_lowest,
+                x_y=self.settings.annotation_location_x_y,
+                color=self.ax.collections[collection_num].get_facecolor()[0],
+                x_offset=self.settings.annotation_x_offset,
+                y_offset=self.settings.annotation_y_offset,
+                fontweight=self.settings.annotation_fontweight,
+            )
+
+            # Set marker style
+            marker_obj = mmarkers.MarkerStyle(self.settings.markers[collection_num])
+            path = marker_obj.get_path().transformed(marker_obj.get_transform())
+            self.ax.collections[collection_num].set_paths(
+                [path] * len(self.ax.collections[collection_num].get_offsets())
+            )
 
         plt.show()
+        self.to_png()
 
 
 def main():

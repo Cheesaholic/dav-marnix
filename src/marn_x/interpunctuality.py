@@ -128,7 +128,7 @@ class DistributionPlotter(BasePlot):
         super().__init__(settings)
 
     def plot(self, data: pd.DataFrame, **kwargs):
-        super().create_figure(**kwargs)
+        super().get_figure(**kwargs)
 
         if "file" not in data.columns:
             files = ["dataset 1"]
@@ -165,13 +165,14 @@ class DistributionPlotter(BasePlot):
             create_colored_annotation(
                 self.ax,
                 f"n = {len(datafile)}",
-                norm_fig[0].get_xydata(),
+                np.array(norm_fig[0].get_xydata()),
                 color=file_settings["color"],
                 x_offset=self.settings.annotation_x_offset,
                 y_offset=self.settings.annotation_y_offset,
             )
 
         plt.show()
+        self.to_png()
 
     def get_norm(
         self,

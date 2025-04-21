@@ -1,5 +1,10 @@
 import re
 
+import matplotlib.pyplot as plt
+import pandas as pd
+import plotly.graph_objects as go
+import seaborn as sns
+
 
 def continuous_colored_title(
     ax,
@@ -95,3 +100,47 @@ def continuous_colored_title(
         current_x = bbox_axes.x1 * x_offset
 
     return text_objects
+
+
+def stripplot_mean_line(
+    ax: plt.Axes,
+    data: pd.DataFrame,
+    x: str,
+    y: str,
+    color: str = "k",
+    alpha: float = 1.0,
+):
+    sns.boxplot(
+        showmeans=True,
+        meanline=True,
+        meanprops={"color": color, "ls": "-", "lw": 1, "alpha": alpha},
+        medianprops={"visible": False},
+        whiskerprops={"visible": False},
+        zorder=10,
+        x=x,
+        y=y,
+        data=data,
+        showfliers=False,
+        showbox=False,
+        showcaps=False,
+        ax=ax,
+    )
+
+
+def highlight_plotly_clusters(
+    fig: go.Figure,
+    highlight_clusters: list[str],
+    separator: str = "_",
+    highlight_opacity: float = 0.04,
+    unhighlight_opacity: float = 1.0,
+) -> go.Figure:
+    for cluster_idx, cluster in enumerate(fig.data):
+        name_list = cluster.name.split(separator)
+        if any(element in name_list for element in highlight_clusters):
+            # Found highlighted cluster
+            fig.data[cluster_idx].marker.opacity = highlight_opacity
+        else:
+            # Non-highlighted cluster
+            fig.data[cluster_idx].marker.opacity = unhighlight_opacity
+
+    return fig

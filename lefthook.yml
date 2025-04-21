@@ -3,12 +3,12 @@ pre-commit:
     black:
       files: git ls-files
       glob: '*.{py, ipynb}'
-      run: black {staged_files}
+      run: uv run black {staged_files}
       stage_fixed: true
     isort:
       files: git ls-files
       glob: '*.{py}'
-      run: isort {staged_files}
+      run: uv run isort {staged_files}
       stage_fixed: true
     clean-jupyter:
       files: git ls-files
@@ -18,7 +18,7 @@ pre-commit:
     ruff:
       files: git ls-files
       glob: '*.py'
-      run: ruff check {staged_files} --fix
+      run: uv run ruff check {staged_files} --fix
     mypy:
       glob: '*.py'
-      run: mypy --pretty {staged_files} --ignore-missing-imports
+      run: uv run mypy --pretty {staged_files} --ignore-missing-imports

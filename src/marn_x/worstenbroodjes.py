@@ -128,12 +128,13 @@ class WorstenbroodjesPlotter(BasePlot):
             color=self.settings.data_color,
             x_offset=self.settings.annotation_x_offset,
             y_offset=self.settings.annotation_y_offset,
-            fontweight="normal",
+            fontweight=self.settings.annotation_fontweight,
             ha="left",
         )
 
         plt.tight_layout()
         plt.show()
+        self.to_png()
 
 
 def main():
@@ -148,7 +149,7 @@ def main():
 
     plotter.plot(
         loader.datafiles.processed,
-        ymax=loader.datafiles.processed[settings.api_data_col].max(),
+        annotation_y=loader.datafiles.processed[settings.api_data_col].max(),
     )
 
 

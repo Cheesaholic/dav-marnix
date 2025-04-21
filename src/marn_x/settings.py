@@ -1,6 +1,7 @@
 import inspect
 import json
 import re
+import sys
 import tomllib
 from collections.abc import Mapping
 from datetime import datetime
@@ -9,6 +10,7 @@ from pathlib import Path
 from typing import Iterable, Literal, Optional
 
 import emoji
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import numpy as np
@@ -16,7 +18,6 @@ import pandas as pd
 import plotly.graph_objects as go
 from loguru import logger
 from matplotlib.lines import Line2D
-from numpy.typing import ArrayLike
 from PIL import Image
 from pydantic import BaseModel
 from requests import Response, get
@@ -43,11 +44,11 @@ class DataFiles:
     def __init__(
         self,
         input: dict[str, str],
-        processed: str,
+        raw: str,
         request_headers: dict,
         json_nests: list[str],
     ):
-        self.input_path = (Path(__file__).parent / "../.." / processed).resolve()
+        self.input_path = (Path(__file__).parent / "../.." / raw).resolve()
 
         self.message_file_paths = {
             k: (
@@ -69,7 +70,7 @@ class DataFiles:
         }
 
         for key in self.datafiles:
-            logger.debug(f"Loaded dataframe from input.{key}")
+            logger.info(f"Loaded dataframe from input.{key}")
             setattr(self, key, self.datafiles[key])
 
     def __iter__(self):
@@ -120,6 +121,9 @@ class DataFiles:
 
 
 class GeneralSettings(BaseModel):
+    logging_level: Literal[
+        "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"
+    ]
     raw: str
     processed: str
     models: str
@@ -138,7 +142,6 @@ class PlotSettings(GeneralSettings):
     """Base settings for plotting."""
 
     title: str
-    uber_suptitle: Optional[str]
     xlabel: str
     ylabel: str
     figsize: tuple = (12, 6)
@@ -147,6 +150,9 @@ class PlotSettings(GeneralSettings):
     hide_spines: bool = True
     hide_axis_label: bool | str = False
     hide_axis: bool | str = False
+    date_format_xaxis: Optional[str] = None
+    date_format_yaxis: Optional[str] = None
+    percentage: Optional[str] = None
     hide_legend: bool = True
     suptitle: Optional[str] = None
     suptitle_x: float = 0.5
@@ -157,19 +163,18 @@ class PlotSettings(GeneralSettings):
     linewidth: int = 3
     annotation_fontsize: int = 8
     annotation_verticalalignment: str = "top"
-    annotations: Optional[list[dict[str, int | float | str]]] = None
-    annotation_x_offset: float = 0
-    annotation_y_offset: float = 0
-    xmax: float = 1
-    ymax: float = 1
-    xmin: float = 0
-    ymin: float = 0
+    annotation_fontweight: str = "bold"
+    annotations: Optional[list[dict[str, int | float | str | datetime]]] = None
+    annotation_x: float = 1.0
+    annotation_y: float = 1.0
+    annotation_x_offset: float = 0.0
+    annotation_y_offset: float = 0.0
+    uber_suptitle: Optional[str] = None
     suptitle_parts: Optional[list[str]] = None
     suptitle_parts_x: float = 0.0
     suptitle_colors: list[str] = [""]
     suptitle_fontsize: int = 11
     legend_title: Optional[str] = None
-    percentage: Optional[str] = None
 
     def __str__(self) -> str:
         return str(vars(self))
@@ -186,7 +191,7 @@ class MessageFileLoader:
 
         self.datafiles = DataFiles(
             self.settings.input,
-            self.settings.processed,
+            self.settings.raw,
             (
                 {}
                 if not self.settings.request_headers
@@ -283,7 +288,10 @@ class AllVars(Mapping):
         for key in kwargs:
             setattr(self, key, kwargs[key])
 
-        logger.debug(f"Retreived {len(self)} variables for {self.file_stem}")
+        logger.remove()
+        logger.add(sys.stderr, level=self.logging_level)
+
+        logger.info(f"Retreived {len(self)} variables for {self.file_stem}")
 
     def __str__(self) -> str:
         return str(vars(self))
@@ -335,6 +343,15 @@ class BasePlot:
                 "Settings class or config.toml have to be set to plot xlabel, ylabel and title."
             )
 
+        if self.settings.date_format_xaxis:
+            self.ax.xaxis.set_major_formatter(
+                mdates.DateFormatter(self.settings.date_format_xaxis)
+            )
+        if self.settings.date_format_yaxis:
+            self.ax.yaxis.set_major_formatter(
+                mdates.DateFormatter(self.settings.date_format_yaxis)
+            )
+
         if self.settings.percentage:
             if self.settings.percentage in ("x", "xaxis", "both"):
                 self.ax.xaxis.set_major_formatter(mtick.PercentFormatter())
@@ -383,17 +400,25 @@ class BasePlot:
                     str(instance["text"]),
                     (
                         (
-                            float(
-                                self.settings.xmax
-                                if instance["x"] == "XMAX"
-                                else instance["x"]
+                            self.settings.annotation_x
+                            + self.settings.annotation_x_offset
+                            if instance["x"] == "ANNOT_X"
+                            else (
+                                instance["x"]
+                                if isinstance(instance["x"], int)
+                                or isinstance(instance["x"], float)
+                                else 0.0
                             )
                         ),
                         (
-                            float(
-                                self.settings.ymax
-                                if instance["y"] == "YMAX"
-                                else instance["y"]
+                            self.settings.annotation_y
+                            + self.settings.annotation_y_offset
+                            if instance["y"] == "ANNOT_Y"
+                            else (
+                                instance["y"]
+                                if isinstance(instance["y"], int)
+                                or isinstance(instance["y"], float)
+                                else 0.0
                             )
                         ),
                     ),
@@ -428,13 +453,13 @@ class BasePlot:
 
     def get_figure(self, **kwargs) -> tuple:
         """Return the figure, creating it if needed."""
-        if self.fig is None or len(kwargs) > 0:
+        if (not (self.ax.lines or self.ax.collections)) or len(kwargs) > 0:
             self.create_figure(**kwargs)
         return self.fig, self.ax
 
-    def save_to_png(
+    def to_png(
         self,
-        fig: Optional[go.Figure | plt.Figure],
+        fig: Optional[go.Figure | plt.Figure] = None,
         path: Optional[Path] = None,
     ) -> Path:
         fig = fig or self.fig
@@ -443,19 +468,46 @@ class BasePlot:
             raise ValueError(f"No fig to save for {self.settings.file_stem}")
 
         if not path:
-            now = datetime.now().strftime("%Y%m%d-%H%M%S")
             path = (
-                Path().cwd()
-                / self.settings.img
-                / f"{self.settings.file_stem}-{now}.png"
-            )
+                Path(__file__).parent
+                / "../.."
+                / self.settings.processed
+                / f"{self.settings.file_stem}-{get_now_str()}.png"
+            ).resolve()
 
         if isinstance(fig, go.Figure):
             fig.write_image(path)
         elif isinstance(fig, plt.Figure):
             fig.savefig(path)
 
-        logger.info(f"Succesfully written plot to {path}")
+        logger.success(f"Succesfully saved plot to {path}")
+
+        return path
+
+    def to_html(
+        self,
+        fig: Optional[go.Figure] = None,
+        path: Optional[Path] = None,
+    ) -> Path:
+        fig = fig or self.fig
+
+        if fig is None:
+            raise ValueError(f"No fig to save for {self.settings.file_stem}")
+
+        if not isinstance(fig, go.Figure):
+            raise ValueError("Only Plotly objects can be saved to HTML.")
+
+        if not path:
+            path = (
+                Path(__file__).parent
+                / "../.."
+                / self.settings.processed
+                / f"{self.settings.file_stem}-{get_now_str()}.html"
+            ).resolve()
+
+        fig.write_html(str(path))
+
+        logger.success(f"Succesfully saved plot to {path}")
 
         return path
 
@@ -469,6 +521,10 @@ def is_hyperlink(path: str | Path) -> bool:
             str(path),
         )
     )
+
+
+def get_now_str() -> str:
+    return datetime.now().strftime("%Y%m%d-%H%M%S")
 
 
 def fourier_model(timeseries: list | pd.Series, k: int) -> dict:
@@ -503,23 +559,22 @@ def fourier_model(timeseries: list | pd.Series, k: int) -> dict:
 def create_colored_annotation(
     ax: plt.Axes,
     text: str,
-    points: list[list[int | float]] | ArrayLike,
+    points: np.ndarray | np.ma.MaskedArray,
     color: Optional[str | int | float] = None,
     highest_lowest: Literal["highest", "lowest"] = "highest",
     x_y: Literal["x", "y"] = "y",
     x_offset: float = 0.0,
     y_offset: float = 0.0,
     ha: str = "center",
+    va: str = "center",
     fontweight: str = "bold",
 ):
-    color = color or "black"
+    if color is None:
+        color = "black"
 
     dim = 1 if x_y == "y" else 0
 
     # Find the point with the highest/lowest x/y-value
-
-    if not (isinstance(points, list)):
-        raise ValueError("Niet goed omgevormd")
 
     if highest_lowest == "highest":
         x_coord, y_coord = max(points, key=lambda p: p[dim])
@@ -528,11 +583,7 @@ def create_colored_annotation(
 
     # Label it
     ax.text(
-        x_coord + x_offset,
-        y_coord + y_offset,
-        text,
-        ha=ha,
-        color=color,
+        x_coord + x_offset, y_coord + y_offset, text, ha=ha, va=va, color=color
     ).set_fontweight(fontweight)
 
 
@@ -711,7 +762,7 @@ def get_api_data(endpoint: str, headers: dict = {}, payload: dict = {}) -> Respo
     """Connects to API via endpoint and variables in string.
     Returns JSON-object."""
 
-    logger.debug(
+    logger.info(
         f"API Call. Endpoint: {endpoint}, headers: {headers}, payload: {payload}"
     )
 
@@ -719,7 +770,7 @@ def get_api_data(endpoint: str, headers: dict = {}, payload: dict = {}) -> Respo
         # Fire response. Throw error if request takes longer than 20 seconds
         response = get(endpoint, headers=headers, data=payload, timeout=20)
 
-        logger.debug(f"API HTML response-code {response.status_code}")
+        logger.info(f"API HTML response-code {response.status_code}")
 
         # Raises HTTPError for bad responses (4xx or 5xx)
         response.raise_for_status()

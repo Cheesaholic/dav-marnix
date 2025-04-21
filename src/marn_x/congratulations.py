@@ -81,15 +81,17 @@ class FelicitationPlotter(BasePlot):
     def __init__(self, settings: FelicitationSettings):
         super().__init__(settings)
 
-    def plot(self, data):
-        super().get_figure()
+    def plot(self, data, **kwargs):
+        super().get_figure(**kwargs)
+
+        print(data)
 
         sns.scatterplot(
             x=self.settings.xlabel,
             y=self.settings.ylabel,
             data=data,
             hue=self.settings.hue_label,
-            palette=data["hue"].to_list(),
+            palette=data["hue"].unique().tolist(),
             ec=None,
             ax=self.ax,
             s=self.settings.marker_size,
@@ -101,6 +103,7 @@ class FelicitationPlotter(BasePlot):
         )
 
         plt.show()
+        self.to_png()
 
 
 def main():
@@ -111,7 +114,16 @@ def main():
 
     plotter = FelicitationPlotter(settings)
 
-    plotter.plot(loader.datafiles.processed)
+    outlier = loader.datafiles.processed[
+        loader.datafiles.processed[settings.ylabel]
+        == loader.datafiles.processed[settings.ylabel].max()
+    ].iloc[0]
+
+    plotter.plot(
+        loader.datafiles.processed,
+        annotation_x=outlier[settings.xlabel],
+        annotation_y=outlier[settings.ylabel],
+    )
 
 
 if __name__ == "__main__":

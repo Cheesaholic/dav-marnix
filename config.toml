@@ -1,6 +1,6 @@
 # General settings (can be overwritten in file specific configs below)
 [ settings ]
-logging_level = "INFO"
+logging_level = "INFO" # Available levels: ["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
 
 raw = "data/raw"
 processed = "data/processed"
@@ -11,24 +11,34 @@ message_col = "message"
 author_col = "author"
 timestamp_col = "timestamp"
 
+
 # Les 2
 [ full_stopping_and_thinking ]
+uber_suptitle = "Familieleden hebben wél een punt..."
+suptitle_parts = ["Personen in de familie-groepsapp zetten ","gemiddeld"," vaker {end_of_sentence_list} achter de laatste zin van lange berichten dan personen in de vrienden-groepsapp."]
+suptitle_colors = ["none", "{mean_color}", "none"]
+suptitle_parts_x = -0.07
+title = "Elke bol stelt een individuele auteur voor. Lange berichten zijn gedefinieerd als berichten met minstens {min_tokens} woorden. Alleen auteurs met minimaal {min_long_messages} lange berichten zijn meegenomen."
+xlabel = "Percentage lange berichten eindigend op {end_of_sentence_list}"
+percentage = "xaxis"
+annotation_y_offset = -0.2
+annotation_location_highest_lowest = "lowest"
+annotation_location_x_y = "x"
+annotation_fontweight = "bold"
+ylabel = ""
+hide_axis = "yaxis"
+mean_color = "#808080"
+mean_alpha = 0.5
+markers = ['s', '^', ".", "p", "*"] # https://matplotlib.org/stable/api/markers_api.html#module-matplotlib.markers
+marker_size = 10
 
-input.familie = "steenvoorden.csv"
-input.vrienden = "KJ.csv"
+input.familie = "family.parq"
+input.vrienden = "friends.csv"
 
 min_tokens = 20
 min_long_messages = 10
 end_of_sentence_list = [".", "!", "?"]
 
-uber_suptitle = "Familieleden hebben wél een punt..."
-suptitle = "Personen in de familie-groepsapp zetten gemiddeld vaker {end_of_sentence_list} achter de laatste zin van lange berichten dan personen in de vrienden-groepsapp."
-title = "Elke bol stelt een individuele auteur voor. Lange berichten zijn gedefinieerd als berichten met minstens {min_tokens} woorden. Alleen auteurs met minimaal {min_long_messages} lange berichten zijn meegenomen."
-xlabel = "Percentage lange berichten eindigend op {end_of_sentence_list}"
-percentage = "xaxis"
-category_label_y_offset = -0.2
-category_label_weight = "bold"
-ylabel = ""
 
 # Les 3
 [ worstenbroodjes ]
@@ -37,23 +47,28 @@ api_data_col = "views"
 api_dt_format = "%Y%m%d%H"
 request_headers = { 'User-Agent' = 'Marn-X/0.1 (marnix.ober@student.hu.nl)'}
 json_nests = ["items"]
-# images = ["https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/North_Brabant-Flag.svg/1200px-North_Brabant-Flag.svg.png"]
+aggregation_frequency = "W-MON" # Week, starting on Monday
+
 holidays = [{"name" = "Carnaval", "year" = 2023, "start" = 2023-02-19, "end" = 2023-02-21, "color" = "#ff4d01", "alpha" = 0.3},
             {"name" = "Carnaval", "year" = 2024, "start" = 2024-02-11, "end" = 2024-02-13, "color" = "#ff4d01", "alpha" = 0.3},
             {"name" = "Kerstdagen", "year" = 2023, "start" = 2023-12-25, "end" = 2024-01-01, "color" = "#008000", "alpha" = 0.3},
             {"name" = "Kerstdagen", "year" = 2024, "start" = 2024-12-25, "end" = 2025-01-01, "color" = "#008000", "alpha" = 0.3}]
-annotations = [{"text" = "<-- Peter Gillis (bekend van het eten van worstenbroodjes)\n      veroordeeld voor belastingfraude.", "x" = 2024-02-28, "y" = "YMAX"}]
+annotations = [{"text" = "<-- Peter Gillis (bekend van het eten van worstenbroodjes)\n      veroordeeld voor belastingfraude.", "x" = 2024-02-28, "y" = "ANNOT_Y"}]
 annotation_x_offset = 0.05
-aggregation_frequency = "W-MON" # Week, starting on Monday
+annotation_fontweight = "normal"
+
 fourier_components = 1
 fourier_color = "#0000FF"
-fourier_alpha = 0.5
+fourier_alpha = 0.2
 fourier_col = "fourier"
-data_color = "#5C4033"
+
+data_color = "#444444"
 linewidth = 3
+date_format_xaxis = '%b %Y'
 xlabel = ""
 ylabel = "Pagina-bezoeken\nper week"
-uber_suptitle = "Daar word je helemaal foxwild van..."
+hide_axis_label = "both"
+uber_suptitle = "Helemaal 'foxwild' van worstenbroodjes tijdens feestdagen..."
 title = "Worstenbroodjes worden in Brabant traditioneel tijdens deze feestdagen gegeten.\nWikipedia's 'pageviews' API gebruikt voor data. Fourier-transform gebruikt met {fourier_components} Fourier-component."
 title_y = 1.01
 suptitle_parts = ["Wikipedia-pagina voor ", "Brabantse worstenbroodjes", "populair rond ", "Carnaval", " en ", "kerstdagen.", "  ", "Fourier", " laat seizoensgebondenheid zien"]
@@ -62,8 +77,8 @@ suptitle_y = 1.13
 
 # Les 4
 [ interpunctuality ]
-input.familie = "steenvoorden.csv"
-input.vrienden = "KJ.csv"
+input.familie = "family.parq"
+input.vrienden = "friends.csv"
 
 input_settings.familie.type = "norm"
 input_settings.familie.color = "blue"
@@ -96,9 +111,9 @@ suptitle_y = 1.16
 [ congratulations ]
 uber_suptitle = "'Hieperdepiep' van de jongeren: Felicitaties nemen met de jaren af."
 suptitle_parts = ["Jongere familieleden feliciteren vaker dan oudere leden in groepsapp. Negatieve ", "trend", " te zien. Wisselend verschil tussen ", "mannen", " en ", "vrouwen", "."]
+suptitle_colors = ["none", "grey", "none", "#00008B", "none", "#AA336A", "none"]
 suptitle_parts_x = -0.1
 suptitle_y = 1.18
-suptitle_colors = ["none", "grey", "none", "#00008B", "none", "#AA336A", "none"]
 title = """Het percentage is gebaseerd op het aantal verjaardagen dat een gebruiker sinds zijn of haar eerste bericht in de groepsapp heeft meegemaakt.
 Een felicitatie wordt geteld als de gebruiker op een verjaardag een bericht stuurt dat overeenkomt met de RegEx: {congratulations_regex}.
 De trendlijn is berekend met lineaire regressie (least squares-methode)."""
@@ -106,11 +121,18 @@ marker_size = 50
 xlabel = "Leeftijd familielid"
 ylabel = "Percentage gefeliciteerd"
 percentage = "yaxis"
+
 hue_label = "Gender"
 hue_dict = {"Man" = "#00008B", "Vrouw" = "#AA336A"}
-input.hue = "steenvoorden_geslachtdata.json"
-input.chat = "steenvoorden.parq"
-input.birthdates = "steenvoorden_geboortedata.json"
+
+annotations = [{"text" = "↑\nNieuw lid van de familie. Heeft nog maar 8 verjaardagen meegemaakt i.p.v. ≈ 50", "x" = "ANNOT_X", "y" = "ANNOT_Y"}]
+annotation_y_offset = -3.0
+annotation_x_offset = -0.2
+
+input.chat = "family.parq"
+input.hue = "family_genders.json"
+input.birthdates = "family_birthdates.json"
+
 min_messages = 10
 birthday_dateformat = "%d-%m-%Y"
 congratulations_regex = '(?ui)(gefelici|birthday|hbd|proficiat|🎉|🥳|🎊)'
@@ -118,21 +140,31 @@ congratulations_flags = "ui"
 
 # Les 6
 [ family_group_chat_topics ]
-uber_suptitle = "Wie niet reist, niest of jarig is, heeft weinig in te brengen..."
-suptitle = "Familiegroepsapp vooral gebruikt voor status-updates. Clusters: reizen, felicitaties, medisch, weer."
+uber_suptitle = "Wie niet reist, niest of jarig is, heeft weinig te vertellen in deze groepsapp..."
+suptitle = "Familiegroepsapp vooral gebruikt voor status-updates. Onderwerpen: reizen, felicitaties, medisch, weer."
 title = "Gespreksonderwerpen opgehaald met 'sentence-embedding'. Dimensionaliteit verkleind met UMAP. BERT-model: {bert_sentence_model}"
 title_x = 0.53
 title_y = 0.95
 xlabel = "D1"
 ylabel = "D2"
-plotly_width = 1300
+plotly_width = 1400
 plotly_xref = "paper"
 
+labels_nr_words = 3
+labels_prefix = false
+labels_word_length = false
+labels_separator = "_"
+labels_aspect = ""
+
+highlighted_clusters = ["oncoloog", "boot", "vliegtuig", "restaurant", "verjaardag", "camping", "harte", "proficiat", "stad", "bus", "regen", "update"]
+rem_text_unhighlighted = true
+
 # Set to false to train your own model!
-use_pretrained_model = true
+use_pretrained_model = false
 pretrained_model_name = "bertopic_mark2"
 
-input.chat = "steenvoorden.parq"
+input.chat = "family.parq"
+
 # A list of stopwords is optional to better generate topics. If input contains multiple columns, the first column will be used as a list. Remove or comment out if not necessary.
 input.stopwords = "https://raw.githubusercontent.com/stopwords-iso/stopwords-nl/refs/heads/master/stopwords-nl.txt"
 
@@ -152,7 +184,7 @@ umap_metric = "cosine"
 umap_random_state = 42
 
 # Clustering with HDBSCAN - Settings
-hdbscan_min_cluster_size = 25
+hdbscan_min_cluster_size = 20
 hdbscan_metric = "euclidean"
 hdbscan_cluster_selection_method = "eom"
 hdbscan_prediction_data = true

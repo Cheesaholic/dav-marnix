@@ -18,9 +18,19 @@ from marn_x.settings import (AllVars, BasePlot, MessageFileLoader,
                              remove_exclude_terms, remove_image,
                              remove_more_information, remove_numbers,
                              remove_removed, remove_security_code, remove_url)
+from marn_x.utils.plot_styling import highlight_plotly_clusters
 
 
 class TopicSettings(PlotSettings):
+    labels_nr_words: int
+    labels_prefix: bool
+    labels_word_length: bool
+    labels_separator: str
+    labels_aspect: str
+
+    highlighted_clusters: list[str]
+    rem_text_unhighlighted: bool
+
     use_pretrained_model: bool
     pretrained_model_name: str
     exclude_terms: list[str]
@@ -164,7 +174,9 @@ class TopicLoader(MessageFileLoader):
         full_path = models_path / model
 
         if not full_path.exists():
-            raise FileNotFoundError(f"No model named {model} in models directory.")
+            raise FileNotFoundError(
+                f"No model named {model} in {self.settings.models} directory."
+            )
 
         self.datafiles.topic_model = BERTopic.load(full_path)
 
@@ -181,7 +193,36 @@ class TopicPlotter(BasePlot):
 
         embeddings = SentenceTransformer(self.settings.bert_sentence_model).encode(docs)
 
-        self.fig = topic_model.visualize_documents(docs, embeddings=embeddings)
+        topic_labels = topic_model.generate_topic_labels(
+            nr_words=self.settings.labels_nr_words,
+            topic_prefix=self.settings.labels_prefix,
+            word_length=self.settings.labels_word_length,
+            separator=self.settings.labels_separator,
+            aspect=(
+                None
+                if self.settings.labels_aspect == ""
+                else self.settings.labels_aspect
+            ),
+        )
+
+        if self.settings.rem_text_unhighlighted:
+            topic_labels = [
+                (
+                    label
+                    if any(
+                        element in label.split(self.settings.labels_separator)
+                        for element in self.settings.highlighted_clusters
+                    )
+                    else ""
+                )
+                for label in topic_labels
+            ]
+
+        topic_model.set_topic_labels(topic_labels)
+
+        self.fig = topic_model.visualize_documents(
+            docs, embeddings=embeddings, custom_labels=True
+        )
 
         self.fig.update_layout(
             title=go.layout.Title(
@@ -193,9 +234,18 @@ class TopicPlotter(BasePlot):
                 y=self.settings.title_y,
             ),
             width=self.settings.plotly_width,
+            showlegend=False if self.settings.hide_legend else True,
+        )
+
+        # style_plotly_scatterplot_clusters(self.fig, self.settings.highlight_clusters, rem_text_ignored_clusters=True, lower_sat_ignored_clusters=True, rem_numbers=True)
+        self.fig = highlight_plotly_clusters(
+            self.fig,
+            self.settings.highlighted_clusters,
+            separator=self.settings.labels_separator,
         )
 
         self.fig.show()
+        self.to_html()
 
 
 def main():
@@ -218,10 +268,6 @@ def main():
 
     plotter.plot(
         loader.datafiles.topic_model, loader.datafiles.chat[settings.message_col].values
-    )
-
-    logger.warning(
-        f"If this plot is empty: Please run the Jupyter Notebook titled {settings.file_stem}. Something is wrong with this version of Plotly in combination with Bertopic. I have tried to debug, but unfortunately nothing has helped. The Notebook uses the same code as here!"
     )
 
 
