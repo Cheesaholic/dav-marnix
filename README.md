@@ -38,10 +38,37 @@ This project is set up to perform the exercises contained in the module Data Ana
    uv run marn_x
    ```
 
+## Project Organization
+```
+dav-marnix/
+├── config.toml                     # Configuration file for project parameters
+├── lefthook.yml                    # Configuration for git hooks
+├── pyproject.toml                  # Project metadata and dependency management
+├── uv.lock                         # Lock file for dependency installs
+├── README.md                       # Project overview and usage instructions
+
+├── img/                            # Official project images to be handed in
+
+├── models/                         # Bertopic models, generated with TopicLoader
+
+├── data/                           # in- and output for loaders and plotters
+│   ├── raw/                        # Data files to be loaded
+│   └── processed/                  # Output plots
+
+├── src/                            # Source code modules
+│   ├── <project files>.py          # Files per lesson
+│   ├── main.py                     # Function to run all project files
+│   └── utils/                      # Utility submodules
+│       ├── data_transformers.py    # Functions for transforming data
+│       ├── file_operations.py      # Functions for loading from files
+│       └── plot_styling.py         # Functions for styling plots
+
+```
+
 ## Classes Available
 
 ### AllVars
-The AllVars class loads all global settings from the `config.toml` file in the main directory of the project. These global settings are then overwritten by specific settings from individual files (if defined). These specific settings can also be overwritten by passing settings with the same name to the class when initializing. See [Usage](#usage) below for examples.
+The AllVars class loads all global settings from the `config.toml` file in the main directory of the project. These global settings are then overwritten by specific settings from individual files (if defined). These specific settings can also be overwritten by passing settings with the same name to the class when initializing. See [Customize your Experience](#customize-your-experience) below for examples.
 
 ### GeneralSettings(BaseModel)
 Settings that almost every file needs.
@@ -95,25 +122,41 @@ Not acually called IndividualPlot, but has another name specific to the file. Ta
    # <loader>.datafiles.chat available as Pandas DataFrame
    ```
 
-3. **Load Settings with AllVars:**
+3. **Load Variables with AllVars:**
 
-   Use the the `AllVars` class to load settings.
+   Use the the `AllVars` class to load variables.
    When initializing, the class will try to load variables from the `config.toml` corresponding to the filename calling the class. If none are available: please pass all necessary attributes to the `AllVars` class to ensure the pipeline runs smoothly.
 
    #### myfile.py
    ```python
    from marn_x.settings import AllVars
 
-   settings = AllVars(setting1="foo")
+   variables = AllVars(setting1="foo")
    # Loading all global settings from config.toml, overwriting with specifics from section [ myfile ], overwriting with variables passed to AllVars
    ```
+
    When loading from a Jupyter Notebook, or to load specifics from a file with another filename than the caller, pass the filename corresponding with the required settings to the `file_stem` setting, when initializing AllVars:
+
    #### other_file_without_settings.py
+
    ```python
    from marn_x.settings import AllVars
 
-   settings = AllVars(setting1="foo", file_stem="myfile")
+   variables = AllVars(setting1="foo", file_stem="myfile")
    # Loading all global settings from config.toml, overwriting with specifics from section [ myfile ], overwriting with variables passed to AllVars
+   ```
+3. **Load Settings:**
+
+   AllVars can be passed as a dict (using **) to (selfmade) settings classes that inherit PlotSettings. Example:
+
+   #### myfile.py
+   ```python
+   class MySettings(PlotSettings):
+      setting1: str
+   
+   settings = MySettings(**AllVars(setting1="foo"))
+   # Loading all global settings from config.toml, overwriting with specifics from section [ myfile ], overwriting with variables passed to AllVars
+   # Loading all variables into class MySettings
    ```
 
 4. **Load Data with MessageFileLoader**
@@ -167,9 +210,9 @@ Not acually called IndividualPlot, but has another name specific to the file. Ta
          self.ax.plot(data.x, data.y)
          
          plt.show()
-         self.save_png()
+         self.to_png()
 
-   # Plot with title: Myitle, x_label: xvalue, y_label: yvalue and data from data gets shown to user and saved to png
+   # Plot with title: My Title, x_label: xvalue, y_label: yvalue and data from data gets shown to user and saved to png
    ```
 
 ## Contributing
