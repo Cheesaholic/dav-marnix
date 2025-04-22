@@ -116,7 +116,7 @@ Not acually called IndividualPlot, but has another name specific to the file. Ta
 
    ```toml
    [ file_name ]
-   setting1 = "value1", # etc....
+   setting1 = "value1" # etc....
    
    input.chat = "friends.csv"
    # <loader>.datafiles.chat available as Pandas DataFrame
