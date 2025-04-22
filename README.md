@@ -1,14 +1,14 @@
 # Marn_X - Marnix Ober 1890946
 
-This project is set up to perform the exercises contained in the module Data Analysis & Visualization of the Master of Informatics - Applied Data Science ([MADS-DAV](https://github.com/raoulg/MADS-DAV)). The project tries to be as modular as possible, with almost all variables and settings being alterable without editing the code. Each Python module reads its settings from a corresponding table in the `config.toml` file in the main directory. Data can also be passed to the preprocessors and plotters by passing them to these classes.
+This project is set up to perform the exercises contained in the module Data Analysis & Visualization of the Master of Informatics - Applied Data Science ([MADS-DAV](https://github.com/raoulg/MADS-DAV)). The project tries to be as modular as possible, with almost all variables and settings being alterable without editing the code. Each Python module reads its settings from a corresponding table in the `config.toml` file in the main directory. Data can also be passed to the preprocessors and plotters by passing them to settings classes.
 
 ## Features
-
-- **
 
 - **Modular Configuration:** Settings are organized in the `config.toml` file, with each table corresponding to a specific Python module. This structure promotes clarity and ease of maintenance.
 
 - **Dynamic Attribute Loading:** The `MessageFileLoader` class dynamically loads configuration variables as class attributes, facilitating intuitive access within the codebase.
+
+- **Adaptable config.toml:** When loading
 
 ## Installation
 
@@ -129,7 +129,7 @@ Not acually called IndividualPlot, but has another name specific to the file. Ta
 
    #### myfile.py
    ```python
-   from marn_x.settings import AllVars
+   from marn_x.utils.settings import AllVars
 
    variables = AllVars(setting1="foo")
    # Loading all global settings from config.toml, overwriting with specifics from section [ myfile ], overwriting with variables passed to AllVars
@@ -140,7 +140,7 @@ Not acually called IndividualPlot, but has another name specific to the file. Ta
    #### other_file_without_settings.py
 
    ```python
-   from marn_x.settings import AllVars
+   from marn_x.utils.settings import AllVars
 
    variables = AllVars(setting1="foo", file_stem="myfile")
    # Loading all global settings from config.toml, overwriting with specifics from section [ myfile ], overwriting with variables passed to AllVars
@@ -243,7 +243,7 @@ We welcome contributions to enhance this project. To contribute:
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE.md) file for details.
 
 ## Acknowledgments
 
