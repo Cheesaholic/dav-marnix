@@ -115,7 +115,8 @@ class DataFiles:
 
         merge = pd.concat(files, axis=0)
 
-        logger.info(f"Merged {len(files)} dataframes.")
+        if len(files) > 1:
+            logger.info(f"Merged {len(files)} dataframes.")
 
         return merge
 
@@ -396,6 +397,17 @@ class BasePlot:
 
         if self.settings.annotations:
             for instance in self.settings.annotations:
+                # Convert datetime inputs to float with built-in Matplotlib function
+                instance["x"] = (
+                    mdates.date2num(instance["x"])
+                    if isinstance(instance["x"], datetime)
+                    else instance["x"]
+                )
+                instance["y"] = (
+                    mdates.date2num(instance["y"])
+                    if isinstance(instance["y"], datetime)
+                    else instance["y"]
+                )
                 self.ax.annotate(
                     str(instance["text"]),
                     (

@@ -156,12 +156,9 @@ labels_word_length = false
 labels_separator = "_"
 labels_aspect = ""
 
-highlighted_clusters = ["oncoloog", "boot", "vliegtuig", "restaurant", "verjaardag", "camping", "harte", "proficiat", "stad", "bus", "regen", "update"]
-rem_text_unhighlighted = true
-
 # Set to false to train your own model!
-use_pretrained_model = false
-pretrained_model_name = "bertopic_mark2"
+use_pretrained_model = true
+pretrained_model_name = "bertopic_markIII"
 
 input.chat = "family.parq"
 
@@ -174,17 +171,17 @@ exclude_terms = ['marnix', 'nikki', 'diane', 'jaap', 'gerrit', 'gytha', 'stefan'
 bert_sentence_model = "NetherlandsForensicInstitute/robbert-2022-dutch-sentence-transformers"
 language = "dutch"
 sentence_regex = '([^\.!?]*[\.!?])'
-sentence_min_token_len = 4
+sentence_min_token_len = 7
 
 # Dimensionality reduction with UMAP - Settings
 umap_neighbors = 15
-umap_n_components = 5
+umap_n_components = 5 # 5 works better than 2, for some reason
 umap_min_dist = 0.0
 umap_metric = "cosine"
 umap_random_state = 42
 
 # Clustering with HDBSCAN - Settings
-hdbscan_min_cluster_size = 20
+hdbscan_min_cluster_size = 25
 hdbscan_metric = "euclidean"
 hdbscan_cluster_selection_method = "eom"
 hdbscan_prediction_data = true
