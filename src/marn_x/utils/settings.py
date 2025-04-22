@@ -1,30 +1,20 @@
 import inspect
-import json
 import re
 import sys
 import tomllib
 from collections.abc import Mapping
 from datetime import datetime
-from io import BytesIO
 from pathlib import Path
-from typing import Iterable, Literal, Optional
+from typing import Literal, Optional
 
-import emoji
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
-import numpy as np
-import pandas as pd
 import plotly.graph_objects as go
 from loguru import logger
-from matplotlib.lines import Line2D
-from PIL import Image
 from pydantic import BaseModel
-from requests import Response, get
-from requests.exceptions import (ConnectionError, HTTPError, RequestException,
-                                 Timeout)
-from scipy.fft import fft, fftfreq
 
+from marn_x.utils.data_transformers import get_now_str
 from marn_x.utils.plot_styling import continuous_colored_title
 
 logger.level("INFO")

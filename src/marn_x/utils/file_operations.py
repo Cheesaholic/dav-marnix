@@ -1,29 +1,107 @@
-import inspect
 import json
-import re
-import sys
-import tomllib
-from collections.abc import Mapping
-from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Iterable, Literal, Optional
+from typing import Iterable, Optional
 
-import emoji
-import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mtick
-import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 from loguru import logger
-from matplotlib.lines import Line2D
 from PIL import Image
-from pydantic import BaseModel
 from requests import Response, get
 from requests.exceptions import (ConnectionError, HTTPError, RequestException,
                                  Timeout)
-from scipy.fft import fft, fftfreq
+
+from marn_x.utils.settings import is_hyperlink
+
+
+class DataFiles:
+    message_file_paths: dict[str, Path | str]
+    datafiles: dict[str, str | pd.DataFrame]
+    request_headers: dict[str, str]
+    json_nests: list[str]
+    images: list[Image.Image]
+
+    chat: Optional[pd.DataFrame] = None
+    processed: Optional[pd.DataFrame] = None
+    topic_model: Optional[pd.DataFrame] = None
+
+    def __init__(
+        self,
+        input: dict[str, str],
+        raw: str,
+        request_headers: dict,
+        json_nests: list[str],
+    ):
+        self.input_path = (Path(__file__).parent / "../../.." / raw).resolve()
+
+        self.message_file_paths = {
+            k: (
+                (self.input_path / Path(message_file)).resolve()
+                if not is_hyperlink(message_file)
+                else message_file
+            )
+            for (k, message_file) in input.items()
+        }
+
+        self.datafiles = {
+            k: load_dataframe(
+                path,
+                self,
+                request_headers=request_headers,
+                json_nests=json_nests,
+            )
+            for (k, path) in self.message_file_paths.items()
+        }
+
+        for key in self.datafiles:
+            logger.info(f"Loaded dataframe from input.{key}")
+            setattr(self, key, self.datafiles[key])
+
+    def __iter__(self):
+        return self.datafiles
+
+    def __len__(self) -> int:
+        return len(self.datafiles)
+
+    def parse_json(self, json_file: dict, json_nests: list) -> dict:
+        """
+
+        Gets nested level belonging to the JSON file from config.toml.
+        Uses self.file_stem as suffix.
+        Takes and returns JSON. If no config is present, returns same JSON.
+
+        """
+
+        for level in json_nests:
+            json_file = json_file[level]
+
+        return json_file
+
+    def all(self, values: bool = False) -> Iterable | list:
+        if values:
+            return list(self.datafiles.values())
+        else:
+            return self.datafiles.items()
+
+    def merge(
+        self,
+        files: Optional[list[pd.DataFrame]] = None,
+        capitalize_filename: bool = False,
+    ) -> pd.DataFrame:
+        if not files:
+            files = []
+            for file_name, datafile in self.all():
+                if isinstance(datafile, pd.DataFrame):
+                    if capitalize_filename:
+                        file_name = file_name.capitalize()
+                    datafile["file"] = file_name
+                    files.append(datafile)
+
+        merge = pd.concat(files, axis=0)
+
+        if len(files) > 1:
+            logger.info(f"Merged {len(files)} dataframes.")
+
+        return merge
 
 
 def load_image(
