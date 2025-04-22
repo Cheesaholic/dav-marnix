@@ -4,12 +4,13 @@ import matplotlib.markers as mmarkers
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Local imports
-from marn_x.settings import (AllVars, BasePlot, MessageFileLoader,
-                             PlotSettings, create_colored_annotation,
-                             remove_emoji, remove_image, remove_numbers,
-                             remove_url)
+from marn_x.utils.data_transformers import (MessageFileLoader,
+                                            create_colored_annotation,
+                                            remove_emoji, remove_image,
+                                            remove_numbers, remove_url)
 from marn_x.utils.plot_styling import stripplot_mean_line
+# Local imports
+from marn_x.utils.settings import AllVars, BasePlot, PlotSettings
 
 
 class PeriodSettings(PlotSettings):

@@ -14,7 +14,6 @@ import plotly.graph_objects as go
 from loguru import logger
 from pydantic import BaseModel
 
-from marn_x.utils.data_transformers import get_now_str
 from marn_x.utils.plot_styling import continuous_colored_title
 
 logger.level("INFO")
@@ -348,6 +347,10 @@ def is_hyperlink(path: str | Path) -> bool:
             str(path),
         )
     )
+
+
+def get_now_str() -> str:
+    return datetime.now().strftime("%Y%m%d-%H%M%S")
 
 
 with open((Path(__file__).parent / "../../../config.toml").resolve(), "rb") as f:

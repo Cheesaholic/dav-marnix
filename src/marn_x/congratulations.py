@@ -2,11 +2,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
+from marn_x.utils.data_transformers import (MessageFileLoader,
+                                            author_min_messages,
+                                            birthday_congratulations,
+                                            calculate_age, create_regex,
+                                            get_linear_regression)
 # Local imports
-from marn_x.settings import (AllVars, BasePlot, MessageFileLoader,
-                             PlotSettings, author_min_messages,
-                             birthday_congratulations, calculate_age,
-                             create_regex, get_linear_regression)
+from marn_x.utils.settings import AllVars, BasePlot, PlotSettings
 
 
 class FelicitationSettings(PlotSettings):

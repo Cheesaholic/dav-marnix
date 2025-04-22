@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from marn_x.utils.data_transformers import (MessageFileLoader,
+                                            create_colored_annotation,
+                                            create_fourier_wave, fourier_model)
 # Local import
-from marn_x.settings import (AllVars, BasePlot, MessageFileLoader,
-                             PlotSettings, create_colored_annotation,
-                             create_fourier_wave, fourier_model)
+from marn_x.utils.settings import AllVars, BasePlot, PlotSettings
 
 
 class WorstenbroodjesSettings(PlotSettings):

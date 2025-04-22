@@ -1,4 +1,5 @@
 import json
+import re
 from io import BytesIO
 from pathlib import Path
 from typing import Iterable, Optional
@@ -9,8 +10,6 @@ from PIL import Image
 from requests import Response, get
 from requests.exceptions import (ConnectionError, HTTPError, RequestException,
                                  Timeout)
-
-from marn_x.utils.settings import is_hyperlink
 
 
 class DataFiles:
@@ -102,6 +101,17 @@ class DataFiles:
             logger.info(f"Merged {len(files)} dataframes.")
 
         return merge
+
+
+def is_hyperlink(path: str | Path) -> bool:
+    if isinstance(path, Path):
+        return False
+    return bool(
+        re.search(
+            r"https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$",
+            str(path),
+        )
+    )
 
 
 def load_image(

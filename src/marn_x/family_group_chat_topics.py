@@ -12,12 +12,14 @@ from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import CountVectorizer
 from umap.umap_ import UMAP
 
+from marn_x.utils.data_transformers import (MessageFileLoader, remove_edited,
+                                            remove_emoji, remove_exclude_terms,
+                                            remove_image,
+                                            remove_more_information,
+                                            remove_numbers, remove_removed,
+                                            remove_security_code, remove_url)
 # Local imports
-from marn_x.settings import (AllVars, BasePlot, MessageFileLoader,
-                             PlotSettings, remove_edited, remove_emoji,
-                             remove_exclude_terms, remove_image,
-                             remove_more_information, remove_numbers,
-                             remove_removed, remove_security_code, remove_url)
+from marn_x.utils.settings import AllVars, BasePlot, PlotSettings
 
 
 class TopicSettings(PlotSettings):

@@ -217,10 +217,6 @@ def get_birthdays(
     return birthdays
 
 
-def get_now_str() -> str:
-    return datetime.now().strftime("%Y%m%d-%H%M%S")
-
-
 def create_birthday_list(
     author: str, birthday: pd.Timestamp, message_data: pd.DataFrame
 ) -> pd.DataFrame:

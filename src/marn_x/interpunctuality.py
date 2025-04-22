@@ -6,12 +6,15 @@ import pandas as pd
 from loguru import logger
 from scipy import stats
 
+from marn_x.utils.data_transformers import (MessageFileLoader,
+                                            create_colored_annotation,
+                                            remove_edited, remove_emoji,
+                                            remove_image,
+                                            remove_more_information,
+                                            remove_removed,
+                                            remove_security_code, remove_url)
 # Local imports
-from marn_x.settings import (AllVars, BasePlot, MessageFileLoader,
-                             PlotSettings, create_colored_annotation,
-                             remove_edited, remove_emoji, remove_image,
-                             remove_more_information, remove_removed,
-                             remove_security_code, remove_url)
+from marn_x.utils.settings import AllVars, BasePlot, PlotSettings
 
 
 class DistributionSettings(PlotSettings):
