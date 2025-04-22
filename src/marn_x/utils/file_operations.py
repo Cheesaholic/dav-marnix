@@ -13,6 +13,21 @@ from requests.exceptions import (ConnectionError, HTTPError, RequestException,
 
 
 class DataFiles:
+    """
+    A class for managing data files from various sources (local files or URLs).
+    Loads files into dataframes and provides utilities for handling data.
+
+    Attributes:
+        message_file_paths (dict): Maps keys to file paths or URLs
+        datafiles (dict): Maps keys to loaded data (dataframes or strings)
+        request_headers (dict): Headers for API requests
+        json_nests (list): Path to nested JSON elements
+        images (list): Loaded image objects
+        chat (pd.DataFrame, optional): Dataframe for chat data
+        processed (pd.DataFrame, optional): Dataframe for processed data
+        topic_model (pd.DataFrame, optional): Dataframe for topic model data
+    """
+
     message_file_paths: dict[str, Path | str]
     datafiles: dict[str, str | pd.DataFrame]
     request_headers: dict[str, str]
@@ -30,8 +45,19 @@ class DataFiles:
         request_headers: dict,
         json_nests: list[str],
     ):
+        """
+        Initialize the DataFiles object and load data from specified sources.
+
+        Args:
+            input (dict): Dictionary mapping keys to file paths or URLs
+            raw (str): Base directory for relative paths
+            request_headers (dict): Headers for API requests
+            json_nests (list): Path to nested JSON elements
+        """
+        # Resolve the base input path
         self.input_path = (Path(__file__).parent / "../../.." / raw).resolve()
 
+        # Convert relative paths to absolute or keep URLs as-is
         self.message_file_paths = {
             k: (
                 (self.input_path / Path(message_file)).resolve()
@@ -41,6 +67,7 @@ class DataFiles:
             for (k, message_file) in input.items()
         }
 
+        # Load each file into a dataframe or other appropriate format
         self.datafiles = {
             k: load_dataframe(
                 path,
@@ -51,31 +78,45 @@ class DataFiles:
             for (k, path) in self.message_file_paths.items()
         }
 
+        # Set each dataframe as an attribute of the class for easy access
         for key in self.datafiles:
             logger.info(f"Loaded dataframe from input.{key}")
             setattr(self, key, self.datafiles[key])
 
     def __iter__(self):
+        """Return iterator for the datafiles dictionary."""
         return self.datafiles
 
     def __len__(self) -> int:
+        """Return the number of datafiles."""
         return len(self.datafiles)
 
     def parse_json(self, json_file: dict, json_nests: list) -> dict:
         """
+        Navigate to a nested level within a JSON object.
 
-        Gets nested level belonging to the JSON file from config.toml.
-        Uses self.file_stem as suffix.
-        Takes and returns JSON. If no config is present, returns same JSON.
+        Args:
+            json_file (dict): The JSON data to navigate
+            json_nests (list): List of keys defining the path to the nested element
 
+        Returns:
+            dict: The nested JSON object at the specified path
         """
-
         for level in json_nests:
             json_file = json_file[level]
 
         return json_file
 
     def all(self, values: bool = False) -> Iterable | list:
+        """
+        Get all datafiles as items or values.
+
+        Args:
+            values (bool): If True, return only values; if False, return (key, value) pairs
+
+        Returns:
+            Iterable or list: The datafiles as items or values
+        """
         if values:
             return list(self.datafiles.values())
         else:
@@ -86,6 +127,16 @@ class DataFiles:
         files: Optional[list[pd.DataFrame]] = None,
         capitalize_filename: bool = False,
     ) -> pd.DataFrame:
+        """
+        Merge multiple dataframes into one, adding a 'file' column to identify source.
+
+        Args:
+            files (list, optional): List of dataframes to merge; if None, uses all dataframes in self.datafiles
+            capitalize_filename (bool): Whether to capitalize filenames in the 'file' column
+
+        Returns:
+            pd.DataFrame: The merged dataframe
+        """
         if not files:
             files = []
             for file_name, datafile in self.all():
@@ -104,6 +155,15 @@ class DataFiles:
 
 
 def is_hyperlink(path: str | Path) -> bool:
+    """
+    Check if a path is a URL/hyperlink.
+
+    Args:
+        path (str or Path): The path to check
+
+    Returns:
+        bool: True if the path is a URL, False otherwise
+    """
     if isinstance(path, Path):
         return False
     return bool(
@@ -118,12 +178,15 @@ def load_image(
     path: Path | str, image_data: Optional[Path | str | BytesIO] = None
 ) -> Image.Image:
     """
+    Load an image from a file path or URL.
 
-    Get image from path / Download image-data from URL and load into return variable.
-    Takes pathlib.Path or url-string. Returns Pillow image object.
+    Args:
+        path (Path or str): The path or URL to the image
+        image_data (Path, str, BytesIO, optional): Pre-loaded image data
 
+    Returns:
+        Image.Image: The loaded image object
     """
-
     if not isinstance(path, Path) and is_hyperlink(path):
         response = get_api_data(path)
         image_data = BytesIO(response.content)
@@ -143,15 +206,23 @@ def load_dataframe(
     json_nests: list[str] = [],
 ) -> pd.DataFrame:
     """
+    Load a file into a pandas DataFrame or other appropriate format.
 
-    Loads a file into a pandas DataFrame. Supports CSV, TXT, and Parquet files.
+    Args:
+        file_path (Path or str): Path to the file or URL
+        datafiles (DataFiles): The DataFiles instance for context
+        delimiter (str): Delimiter for CSV files
+        request_headers (dict): Headers for API requests
+        json_nests (list): Path to nested JSON elements
 
-    Takes pathhlib Path, optional keyword argument for csv delimiter
-    returns dataframe
-    raises ValueError if file doesn't exist.
+    Returns:
+        pd.DataFrame or dict: The loaded data
 
+    Raises:
+        FileNotFoundError: If the file doesn't exist
+        ValueError: If the file type is not supported
     """
-
+    # Handle URLs
     if isinstance(file_path, str):
         if file_path.endswith(".txt"):
             return pd.read_csv(file_path)
@@ -161,11 +232,13 @@ def load_dataframe(
             normalized_df = pd.json_normalize(parsed_file)
             return normalized_df
 
+    # Verify file exists
     if not file_path.is_file():
         raise FileNotFoundError(
             f"File {file_path.name} not found in {file_path.parents[0]}. Make sure the filename is correctly defined in config.toml"
         )
 
+    # Load file based on extension
     file_extension = file_path.suffix
 
     if file_extension == ".csv":
@@ -184,9 +257,20 @@ def load_dataframe(
 
 
 def get_api_data(endpoint: str, headers: dict = {}, payload: dict = {}) -> Response:
-    """Connects to API via endpoint and variables in string.
-    Returns JSON-object."""
+    """
+    Make a GET request to an API endpoint.
 
+    Args:
+        endpoint (str): The API endpoint URL
+        headers (dict): Request headers
+        payload (dict): Request payload/data
+
+    Returns:
+        Response: The HTTP response object
+
+    Logs:
+        API call details and any errors that occur
+    """
     logger.info(
         f"API Call. Endpoint: {endpoint}, headers: {headers}, payload: {payload}"
     )
