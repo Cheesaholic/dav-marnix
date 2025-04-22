@@ -78,6 +78,11 @@ class AllVars(Mapping):
         # Configure logging based on settings
         logger.remove()
         logger.add(sys.stderr, level=self.logging_level)
+        logger.add(
+            (Path(__file__) / "../../../logs/logs.log"),
+            rotation="weekly",
+            level=self.logging_level,
+        )
 
         logger.info(f"Retrieved {len(self)} variables for {self.file_stem}")
 

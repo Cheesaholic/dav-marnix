@@ -1,5 +1,6 @@
 # General settings (can be overwritten in file specific configs below)
 [ settings ]
+# Logs to sys.stderr and logs/logs.log
 logging_level = "INFO" # Available levels: ["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
 
 raw = "data/raw"
@@ -7,8 +8,11 @@ processed = "data/processed"
 models = "models"
 img = "img"
 
+# Column name for processing messages
 message_col = "message"
+# Column name for authors
 author_col = "author"
+# Column name for timestamps
 timestamp_col = "timestamp"
 
 
@@ -32,6 +36,7 @@ mean_alpha = 0.5
 markers = ['s', '^', ".", "p", "*"] # https://matplotlib.org/stable/api/markers_api.html#module-matplotlib.markers
 marker_size = 10
 
+# Enter any input.<name> you want and as many as you like!
 input.familie = "family.parq"
 input.vrienden = "friends.csv"
 
@@ -42,6 +47,7 @@ end_of_sentence_list = [".", "!", "?"]
 
 # Les 3
 [ worstenbroodjes ]
+# Enter Wikipedia API-link or DataFrame object with any input.<name> you like
 input.wikipedia_api = "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/nl.wikipedia.org/all-access/user/Brabants_worstenbroodje/daily/20230131/20250105"
 api_data_col = "views"
 api_dt_format = "%Y%m%d%H"
@@ -77,6 +83,7 @@ suptitle_y = 1.13
 
 # Les 4
 [ interpunctuality ]
+# Enter 2 input.<name> instances below. Repeat these names in the input_settings
 input.familie = "family.parq"
 input.vrienden = "friends.csv"
 
@@ -129,7 +136,10 @@ annotations = [{"text" = "↑\nNieuw lid van de familie. Heeft nog maar 8 verjaa
 annotation_y_offset = -3.0
 annotation_x_offset = -0.2
 
+# Enter as much DataFrame inputs (csv, parq, txt) as you like. Use any name you want.
 input.chat = "family.parq"
+
+# Enter hue and birthdate datasets with JSON. Key=author, val=hue/birthdate
 input.hue = "family_genders.json"
 input.birthdates = "family_birthdates.json"
 
@@ -160,6 +170,7 @@ labels_aspect = ""
 use_pretrained_model = true
 pretrained_model_name = "bertopic_markIII"
 
+# Use input.chat, enter any dataset you like. Ensure text is in variable message_col.
 input.chat = "family.parq"
 
 # A list of stopwords is optional to better generate topics. If input contains multiple columns, the first column will be used as a list. Remove or comment out if not necessary.

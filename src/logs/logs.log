@@ -1,0 +1,4 @@
+2025-04-22 19:58:00.176 | INFO     | marn_x.utils.settings:__init__:83 - Retrieved 35 variables for worstenbroodjes
+2025-04-22 19:58:00.179 | INFO     | marn_x.utils.file_operations:get_api_data:274 - API Call. Endpoint: https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/nl.wikipedia.org/all-access/user/Brabants_worstenbroodje/daily/20230131/20250105, headers: {'User-Agent': 'Marn-X/0.1 (marnix.ober@student.hu.nl)'}, payload: {}
+2025-04-22 19:58:00.695 | INFO     | marn_x.utils.file_operations:get_api_data:282 - API HTML response-code 200
+2025-04-22 19:58:00.715 | INFO     | marn_x.utils.file_operations:__init__:83 - Loaded dataframe from input.wikipedia_api

@@ -8,8 +8,6 @@ This project is set up to perform the exercises contained in the module Data Ana
 
 - **Dynamic Attribute Loading:** The `MessageFileLoader` class dynamically loads configuration variables as class attributes, facilitating intuitive access within the codebase.
 
-- **Adaptable config.toml:** When loading
-
 ## Installation
 
 1. **Clone the Repository:**
@@ -99,15 +97,17 @@ Not acually called IndividualPlot, but has another name specific to the file. Ta
 
 1. **Configure Settings:**
 
-   Define your settings in the `config.toml` file. Each table should correspond to a Python file name. All variables passed here are available to the corresponding preprocessors and plotters. Example:
+   Define your settings in the `config.toml` file. Each table should correspond to a Python file name. All variables passed here are available to the corresponding preprocessors and plotters.
+   Tip! other variables can be used between accolades. They are parsed by the .plot() method of plotting classes!
 
    ```toml
    [ file_name ]
    setting1 = "value1"
-   setting2 = "value2"
+   setting2 = "{setting1}"
    setting3 = 1970-01-01
    setting4 = ["value3", "value4"]
    # settings.setting3 -> date(1970, 1, 1)
+   # settings.setting2 -> "value1"
    ```
 
 2. **Load DataFiles:**
