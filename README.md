@@ -4,6 +4,8 @@ This project is set up to perform the exercises contained in the module Data Ana
 
 ## Features
 
+- **
+
 - **Modular Configuration:** Settings are organized in the `config.toml` file, with each table corresponding to a specific Python module. This structure promotes clarity and ease of maintenance.
 
 - **Dynamic Attribute Loading:** The `MessageFileLoader` class dynamically loads configuration variables as class attributes, facilitating intuitive access within the codebase.
@@ -27,6 +29,15 @@ This project is set up to perform the exercises contained in the module Data Ana
    ```bash
    uv sync
    ```
+
+## Quick Run
+
+   To run all visualizations available by default, run:
+
+   ```bash
+   uv run marn_x
+   ```
+
 ## Classes Available
 
 ### AllVars
@@ -57,7 +68,7 @@ Method `create_figure` sets almost all characteristics of the plot. This method 
 ### IndividualPlot(BasePlot)
 Not acually called IndividualPlot, but has another name specific to the file. Takes `IndividualSettings` object when initializing. Calls `BasePlot` to create Matplotlib environment. Performs actions specific to the file. Can be passed settings to change them last-minute.
 
-## Usage
+## Customize your Experience
 
 1. **Configure Settings:**
 

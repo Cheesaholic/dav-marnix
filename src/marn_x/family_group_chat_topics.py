@@ -18,7 +18,6 @@ from marn_x.settings import (AllVars, BasePlot, MessageFileLoader,
                              remove_exclude_terms, remove_image,
                              remove_more_information, remove_numbers,
                              remove_removed, remove_security_code, remove_url)
-from marn_x.utils.plot_styling import highlight_plotly_clusters
 
 
 class TopicSettings(PlotSettings):
@@ -159,7 +158,7 @@ class TopicLoader(MessageFileLoader):
         if df is None:
             raise ValueError(f"No Dataframe for {self.settings.file_stem}")
 
-        logger.info(f"Creating new Bertopic model. This is going to take a while...")
+        logger.info("Creating new Bertopic model. This is going to take a while...")
 
         # Create sentence embedding model to convert text to vectors
         embedding_model = SentenceTransformer(self.settings.bert_sentence_model)
