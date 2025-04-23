@@ -72,6 +72,15 @@ dav-marnix/
 
 ```
 
+
+| Lesson | Lesson Name | Python Filename | Class Names |
+| :----: | :----: | :----: | :----: |
+| 2 | Comparing Categories | full_stopping_and_thinking.py | PeriodSettings<br>PeriodLoader<br>PeriodPlotter |
+| 3 | Time | worstenbroodjes.py | WorstenbroodjesSettings<br>WorstenbroodjesLoader<br>WorstenbroodjesPlotter |
+| 4 | Distributions | interpunctuality.py | DistributionSettings<br>DistributionLoader<br>DistributionPlotter |
+| 5 | Relations | congratulations.py | FelicitationSettings<br>FelicitationLoader<br>FelicitationPlotter |
+| 6 | Dimensionality Reduction / Modeling | family_group_chat_topics.py | TopicSettings<br>TopicLoader<br>TopicPlotter |
+
 ## Classes Available
 
 ### AllVars
