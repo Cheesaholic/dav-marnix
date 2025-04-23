@@ -79,7 +79,7 @@ class AllVars(Mapping):
         logger.remove()
         logger.add(sys.stderr, level=self.logging_level)
         logger.add(
-            (Path(__file__) / "../../../logs/logs.log"),
+            (Path(__file__) / "../../../../logs/logs.log"),
             rotation="weekly",
             level=self.logging_level,
         )

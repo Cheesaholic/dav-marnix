@@ -36,6 +36,13 @@ This project is set up to perform the exercises contained in the module Data Ana
    uv run marn_x
    ```
 
+## Dashboard
+   To run the dashboard, run:
+
+   ```bash
+   uv run dashboard
+   ```
+
 ## Project Organization
 ```
 dav-marnix/
@@ -61,6 +68,7 @@ dav-marnix/
 │       ├── data_transformers.py    # Functions for transforming data
 │       ├── file_operations.py      # Functions for loading from files
 │       └── plot_styling.py         # Functions for styling plots
+│       └── dashboard.py            # Dashboard for live interacting with params
 
 ```
 

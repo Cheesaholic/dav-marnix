@@ -50,7 +50,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-"marn_x" = "marn_x.main:main"
+marn_x = "marn_x.main:main"
+dashboard = "marn_x.utils.dashboard:dashboard_launcher"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/marn_x"]

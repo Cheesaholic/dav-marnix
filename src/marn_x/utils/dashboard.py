@@ -1,8 +1,10 @@
+import os
+
 import streamlit as st
 
+# Import the required classes from existing module
 from marn_x.full_stopping_and_thinking import (PeriodLoader, PeriodPlotter,
                                                PeriodSettings)
-# Import the required classes from existing module
 from marn_x.utils.settings import AllVars
 
 
@@ -97,5 +99,12 @@ def streamlit_period_analysis():
             st.error("Please check your data files and settings.")
 
 
+def dashboard_launcher():
+    import os
+
+    os.system("uv run streamlit run src/marn_x/utils/dashboard.py")
+
+
 if __name__ == "__main__":
+    st.set_option("deprecation.showPyplotGlobalUse", False)
     streamlit_period_analysis()
