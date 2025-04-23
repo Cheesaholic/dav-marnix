@@ -100,7 +100,6 @@ def streamlit_period_analysis():
 
 
 def dashboard_launcher():
-    import os
 
     os.system("uv run streamlit run src/marn_x/utils/dashboard.py")
 
