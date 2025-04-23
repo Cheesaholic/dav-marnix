@@ -57,6 +57,7 @@ dav-marnix/
 │   ├── <project files>.py          # Files per lesson
 │   ├── main.py                     # Function to run all project files
 │   └── utils/                      # Utility submodules
+│       ├── settings.py             # Functions for managing (plot) settings
 │       ├── data_transformers.py    # Functions for transforming data
 │       ├── file_operations.py      # Functions for loading from files
 │       └── plot_styling.py         # Functions for styling plots

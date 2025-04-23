@@ -30,6 +30,8 @@ dependencies = [
     "nl-core-news-sm",
     "types-requests>=2.32.0.20250328",
     "wa-analyzer>=0.4.1",
+    "streamlit==1.14.0",
+    "altair==4.0",
 ]
 
 [dependency-groups]
