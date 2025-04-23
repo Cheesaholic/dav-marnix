@@ -1,5 +1,3 @@
-import matplotlib.pyplot as plt
-import pandas as pd
 import streamlit as st
 
 from marn_x.full_stopping_and_thinking import (PeriodLoader, PeriodPlotter,
